@@ -1,0 +1,125 @@
+# Generated CMake Pico project file
+
+cmake_minimum_required(VERSION 3.13)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Pico SDK configuration
+if(WIN32)
+    set(USERHOME $ENV{USERPROFILE})
+else()
+    set(USERHOME $ENV{HOME})
+endif()
+
+set(sdkVersion 2.3.1)
+set(toolchainVersion 15_2_Rel1)
+set(picotoolVersion 2.3.1)
+set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
+
+if(EXISTS ${picoVscode})
+    include(${picoVscode})
+endif()
+
+set(PICO_BOARD pico2 CACHE STRING "Board type")
+
+include(pico_sdk_import.cmake)
+
+project(handheld C CXX ASM)
+
+pico_sdk_init()
+
+
+# ==========================================
+# MAIN GAME EXECUTABLE
+# ==========================================
+
+add_executable(handheld
+    handheld.c
+    input/buttons.c
+    input/joystick.c
+    game/physics.c
+    display/display.c
+    game/score.c
+)
+
+
+# ==========================================
+# JOYSTICK TEST
+# ==========================================
+
+add_executable(joystick_test
+    test/joystick_test.c
+    input/joystick.c
+)
+
+
+# ==========================================
+# BUTTON TEST
+# ==========================================
+
+add_executable(buttons_test
+    test/buttons_test.c
+    input/buttons.c
+)
+
+
+# ==========================================
+# PHYSICS TEST
+# ==========================================
+
+add_executable(physics_test
+    test/physics_test.c
+    game/physics.c
+    input/buttons.c
+    input/joystick.c
+)
+
+
+# ==========================================
+# DISPLAY TEST
+# ==========================================
+
+add_executable(display_test
+    test/display_test.c
+    display/display.c
+)
+
+
+# ==========================================
+# SNAKE INTEGRATION TEST
+# Buttons + Display + Game Logic
+# ==========================================
+
+add_executable(snake_test
+    test/snake_test.c
+    input/buttons.c
+    display/display.c
+    game/score.c
+)
+
+
+# ==========================================
+# COMMON CONFIGURATION
+# ==========================================
+
+foreach(target handheld joystick_test buttons_test physics_test display_test snake_test)
+
+    target_link_libraries(${target}
+        pico_stdlib
+        hardware_adc
+        hardware_spi
+        hardware_dma
+    )
+
+    target_include_directories(${target} PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}
+    )
+
+    pico_enable_stdio_usb(${target} 1)
+    pico_enable_stdio_uart(${target} 0)
+
+    pico_add_extra_outputs(${target})
+
+endforeach()
