@@ -97,7 +97,25 @@ add_executable(snake_test
     input/buttons.c
     display/display.c
     game/score.c
+    sound/sound.c
+
 )
+add_executable(sound_test
+    test/sound_test.c
+    sound/sound.c
+)
+
+target_include_directories(sound_test PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}
+)
+
+target_link_libraries(sound_test
+    pico_stdlib
+    hardware_pwm
+    hardware_clocks
+)
+
+pico_add_extra_outputs(sound_test)
 
 
 # ==========================================
@@ -111,6 +129,8 @@ foreach(target handheld joystick_test buttons_test physics_test display_test sna
         hardware_adc
         hardware_spi
         hardware_dma
+        hardware_pwm
+        hardware_clocks
     )
 
     target_include_directories(${target} PRIVATE

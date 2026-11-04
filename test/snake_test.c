@@ -9,6 +9,7 @@
 #include "display/display.h"
 #include "test/snake_test.h"
 #include "game/score.h"
+#include "sound/sound.h"
 
 #define MOVE_INTERVAL_MS 150
 #define RESTART_DELAY_MS 1000
@@ -124,6 +125,7 @@ void snake_change_direction(SnakeGame *game, int dx, int dy)
 void snake_update(SnakeGame *game)
 {
     if (game->game_over) {
+        sound_play_tone(400, 200);
         return;
     }
 
@@ -160,7 +162,7 @@ void snake_update(SnakeGame *game)
     if (eating && game->length < MAX_SNAKE_LENGTH) {
 
         game->length++;
-
+        sound_play_tone(1000, 80);
         score_add(&game->score, 10);
     }
 
@@ -316,6 +318,7 @@ int main(void)
 
     buttons_init();
     display_init();
+    sound_init();
 
     srand((unsigned int)time_us_32());
 
@@ -360,7 +363,7 @@ int main(void)
             snake_change_direction(&game, 0, 1);
         }
 
-        // D = Left
+        // D = left
         else if (button_pressed(BUTTON_D_GPIO)) {
 
             snake_change_direction(&game, -1, 0);
