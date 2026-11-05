@@ -1,24 +1,39 @@
 #include "pico/stdlib.h"
-#include "display/display.h"
 
-/*
- * Temporary main program.
- * Snake is built separately by the snake_test executable.
- * This keeps the main handheld target independent of the Snake test.
- */
+#include "display/display.h"
+#include "input/buttons.h"
+#include "input/joystick.h"
+#include "sound/sound.h"
+
+#include "space_shooter.h"
+
+#include <stdlib.h>
 
 int main(void)
 {
     stdio_init_all();
 
-    display_init();
-    display_clear(BLACK);
-    display_show();
+    // Initialize hardware
 
-    while (true) {
-        /* Main handheld game will be added here later. */
-        sleep_ms(100);
-    }
+    display_init();
+
+    buttons_init();
+
+    joystick_init();
+
+    sound_init();
+
+    // Seed random number generator
+
+    srand(time_us_32());
+
+    // Initialize game
+
+    space_shooter_init();
+
+    // Start Space Shooter
+
+    space_shooter_run();
 
     return 0;
 }

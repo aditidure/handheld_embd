@@ -37,11 +37,17 @@ pico_sdk_init()
 
 add_executable(handheld
     handheld.c
+    space_shooter.c
+
     input/buttons.c
     input/joystick.c
-    game/physics.c
+
     display/display.c
+
+    game/physics.c
     game/score.c
+
+    sound/sound.c
 )
 
 
