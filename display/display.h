@@ -3,8 +3,16 @@
 
 #include <stdint.h>
 
+// Orientation is chosen per program. Define DISPLAY_LANDSCAPE
+// (e.g. with target_compile_definitions in CMakeLists.txt) to get
+// a 320x240 landscape screen; otherwise it is 240x320 portrait.
+#ifdef DISPLAY_LANDSCAPE
+#define SCREEN_WIDTH  320
+#define SCREEN_HEIGHT 240
+#else
 #define SCREEN_WIDTH  240
 #define SCREEN_HEIGHT 320
+#endif
 
 // RGB565 colours
 #define BLACK   0x0000

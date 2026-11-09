@@ -30,6 +30,11 @@ typedef struct
     float speed;
     int radius;
     bool active;
+
+    // Visual-only fields: rotation and a jagged outline shape.
+    float angle;
+    float spin;
+    int8_t shape[8];
 } Asteroid;
 
 typedef struct

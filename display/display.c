@@ -22,6 +22,17 @@
 #define PIN_DC   16
 #define PIN_RST  20
 
+// ST7789 MADCTL (memory access control) value sets the rotation.
+//   0x00 = portrait
+//   0x60 = landscape (MV | MX)
+//   0xA0 = landscape rotated 180 degrees (MV | MY)
+// If the landscape picture appears upside down, change 0x60 to 0xA0.
+#ifdef DISPLAY_LANDSCAPE
+#define DISPLAY_MADCTL 0x60
+#else
+#define DISPLAY_MADCTL 0x00
+#endif
+
 // Framebuffer
 static uint16_t framebuffer[SCREEN_WIDTH * SCREEN_HEIGHT];
 
@@ -196,7 +207,7 @@ static void st7789_init(void)
     write_data_byte(0x55);
 
     write_command(0x36);
-    write_data_byte(0x00);
+    write_data_byte(DISPLAY_MADCTL);
 
     write_command(0x20);
 

@@ -50,6 +50,9 @@ add_executable(handheld
     sound/sound.c
 )
 
+# Space Shooter runs in landscape (320x240).
+target_compile_definitions(handheld PRIVATE DISPLAY_LANDSCAPE=1)
+
 
 # ==========================================
 # JOYSTICK TEST
