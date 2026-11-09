@@ -24,7 +24,6 @@
 #define JOY_ON           0.6f   // stick must pass this to move
 #define JOY_OFF          0.3f   // and return inside this to re-arm
 
-#define FRAME_MS         16
 
 #define CARD_W           130
 #define CARD_H           124
@@ -316,7 +315,6 @@ void menu_run(void)
                 footer_text = "JOYSTICK OR B D TO CHOOSE";
 
             draw_menu(selected, now);
-            sleep_ms(FRAME_MS);
         }
 
         sound_sfx_play(&SFX_SELECT);

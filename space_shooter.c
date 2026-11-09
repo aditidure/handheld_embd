@@ -28,7 +28,6 @@
 #define INITIAL_SPAWN_INTERVAL   900
 #define MIN_SPAWN_INTERVAL       300
 
-#define FRAME_TIME_MS            16
 #define COLLISION_COOLDOWN       900
 #define FOOD_SPAWN_INTERVAL      5000
 
@@ -1247,7 +1246,5 @@ void space_shooter_run(void)
 
             draw_game(now);
         }
-
-        sleep_ms(FRAME_TIME_MS);
     }
 }

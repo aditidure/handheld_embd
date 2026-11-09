@@ -56,8 +56,16 @@ add_executable(handheld
     save/save.c
 )
 
+# Dual-core rendering: core 1 sends frames to the display while core 0
+# draws the next one. Configure with -DHANDHELD_DUAL_CORE=OFF to build
+# the single-core baseline for FPS comparison.
+option(HANDHELD_DUAL_CORE "Render with both RP2350 cores" ON)
+
 # The menu and all its games run in landscape (320x240).
-target_compile_definitions(handheld PRIVATE DISPLAY_LANDSCAPE=1)
+target_compile_definitions(handheld PRIVATE
+    DISPLAY_LANDSCAPE=1
+    DISPLAY_DUAL_CORE=$<BOOL:${HANDHELD_DUAL_CORE}>
+)
 
 # Flash access for persistent best scores.
 target_link_libraries(handheld
@@ -152,6 +160,8 @@ foreach(target handheld joystick_test buttons_test physics_test display_test sna
         hardware_dma
         hardware_pwm
         hardware_clocks
+        pico_multicore
+        pico_flash
     )
 
     target_include_directories(${target} PRIVATE

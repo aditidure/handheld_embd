@@ -28,7 +28,6 @@
 #define SPEEDUP_MS           3     // faster by this much per apple
 #define READY_MS             1200
 #define RESTART_DELAY_MS     800
-#define FRAME_MS             16
 
 #define POINTS_PER_APPLE     10
 
@@ -489,6 +488,5 @@ void snake_game_run(void)
         }
 
         draw(now);
-        sleep_ms(FRAME_MS);
     }
 }

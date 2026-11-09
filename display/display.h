@@ -64,6 +64,8 @@ typedef struct
     float frame_ms;         // average time between frames
     float worst_frame_ms;   // slowest frame in the window
     float transfer_ms;      // average DMA transfer time to the panel
+    float wait_ms;          // core 0 time blocked waiting for display
+    float render_ms;        // core 0 time doing game logic + drawing
 } DisplayStats;
 
 // Latest one-second stats (all zero until the first second passes).

@@ -33,8 +33,45 @@
 #define DISPLAY_MADCTL 0x00
 #endif
 
-// Framebuffer
-static uint16_t framebuffer[SCREEN_WIDTH * SCREEN_HEIGHT];
+// --------------------------------------------------
+// FRAMEBUFFERS AND DUAL-CORE RENDERING
+// --------------------------------------------------
+//
+// DISPLAY_DUAL_CORE = 1 (default):
+//   Two framebuffers. Core 0 draws the next frame into the "back"
+//   buffer while core 1 sends the previous frame to the panel over
+//   SPI using DMA. display_show() hands the finished buffer to
+//   core 1 and swaps, so drawing and transferring overlap.
+//
+// DISPLAY_DUAL_CORE = 0:
+//   One framebuffer; core 0 draws, then waits for the transfer.
+//   Useful to measure the single-core baseline for comparison.
+
+#ifndef DISPLAY_DUAL_CORE
+#define DISPLAY_DUAL_CORE 1
+#endif
+
+#define FRAME_PIXELS (SCREEN_WIDTH * SCREEN_HEIGHT)
+#define FRAME_BYTES  (FRAME_PIXELS * sizeof(uint16_t))
+
+#if DISPLAY_DUAL_CORE
+#include "pico/multicore.h"
+#include "pico/flash.h"
+#include "hardware/sync.h"
+#define NUM_FRAMEBUFFERS 2
+#else
+#define NUM_FRAMEBUFFERS 1
+#endif
+
+static uint16_t framebuffers[NUM_FRAMEBUFFERS][FRAME_PIXELS];
+
+// Buffer that all drawing functions write into (owned by core 0).
+static uint16_t *framebuffer = framebuffers[0];
+static int back_index = 0;
+
+#if DISPLAY_DUAL_CORE
+static void core1_display_task(void);
+#endif
 
 // DMA
 static int dma_channel;
@@ -251,6 +288,11 @@ void display_init(void)
     st7789_init();
 
     dma_channel = dma_claim_unused_channel(true);
+
+#if DISPLAY_DUAL_CORE
+    // Core 1 now owns the SPI/DMA transfers to the panel.
+    multicore_launch_core1(core1_display_task);
+#endif
 }
 
 
@@ -314,6 +356,92 @@ void display_fill_rect(int x, int y,
 
 
 // --------------------------------------------------
+// FRAME TRANSFER (SPI + DMA)
+// --------------------------------------------------
+
+// Send one whole framebuffer to the panel and wait until done.
+// Runs on core 1 in dual-core mode, on core 0 otherwise.
+static void transfer_frame(const uint16_t *buffer)
+{
+    set_address_window(0, 0,
+                       SCREEN_WIDTH - 1,
+                       SCREEN_HEIGHT - 1);
+
+    write_command(0x2C);
+
+    gpio_put(PIN_CS, 0);
+    gpio_put(PIN_DC, 1);
+
+    dma_channel_config config =
+        dma_channel_get_default_config(dma_channel);
+
+    channel_config_set_transfer_data_size(&config, DMA_SIZE_8);
+    channel_config_set_read_increment(&config, true);
+    channel_config_set_write_increment(&config, false);
+    channel_config_set_dreq(&config, spi_get_dreq(SPI_PORT, true));
+
+    dma_channel_configure(
+        dma_channel,
+        &config,
+        &spi_get_hw(SPI_PORT)->dr,
+        buffer,
+        FRAME_BYTES,
+        true
+    );
+
+    dma_channel_wait_for_finish_blocking(dma_channel);
+
+    while (spi_is_busy(SPI_PORT))
+    {
+        tight_loop_contents();
+    }
+
+    gpio_put(PIN_CS, 1);
+}
+
+
+#if DISPLAY_DUAL_CORE
+
+// --------------------------------------------------
+// CORE 1: DISPLAY TASK
+// --------------------------------------------------
+//
+// Hand-over protocol (shared variables + memory barriers):
+//   core 0 sets transfer_index, then transfer_busy = true, then SEV.
+//   core 1 sends that buffer, sets transfer_busy = false, then SEV.
+// WFE puts the waiting core to sleep until the other signals.
+
+static volatile bool transfer_busy = false;
+static volatile int transfer_index = 0;
+static volatile uint32_t core1_transfer_us = 0;
+
+static void core1_display_task(void)
+{
+    // Lets core 0 safely pause this core while it writes to flash
+    // (saving best scores), since code is executed from flash.
+    flash_safe_execute_core_init();
+
+    while (true)
+    {
+        while (!transfer_busy)
+            __wfe();
+
+        __dmb();
+
+        uint32_t start = time_us_32();
+        transfer_frame(framebuffers[transfer_index]);
+        core1_transfer_us = time_us_32() - start;
+
+        __dmb();
+        transfer_busy = false;
+        __sev();
+    }
+}
+
+#endif
+
+
+// --------------------------------------------------
 // PERFORMANCE STATS
 // --------------------------------------------------
 
@@ -326,6 +454,7 @@ static bool fps_logging = false;
 static uint32_t window_start_us = 0;
 static uint32_t window_frames = 0;
 static uint64_t window_transfer_us = 0;
+static uint64_t window_wait_us = 0;
 static uint32_t window_worst_us = 0;
 static uint32_t last_frame_end_us = 0;
 
@@ -341,7 +470,12 @@ static void draw_fps_overlay(void)
     display_draw_string(2, y + 2, text, YELLOW, 1);
 }
 
-static void update_stats(uint32_t transfer_start_us, uint32_t frame_end_us)
+// Called once per frame on core 0.
+//   frame_end_us : when display_show() finished
+//   wait_us      : time core 0 spent blocked on the display
+//   transfer_us  : duration of a frame transfer
+static void update_stats(uint32_t frame_end_us, uint32_t wait_us,
+                         uint32_t transfer_us)
 {
     if (last_frame_end_us != 0)
     {
@@ -355,29 +489,35 @@ static void update_stats(uint32_t transfer_start_us, uint32_t frame_end_us)
         window_start_us = frame_end_us;
 
     window_frames++;
-    window_transfer_us += frame_end_us - transfer_start_us;
+    window_wait_us += wait_us;
+    window_transfer_us += transfer_us;
 
     uint32_t elapsed = frame_end_us - window_start_us;
     if (elapsed < STATS_WINDOW_US)
         return;
 
-    stats.fps = (float)window_frames * 1000000.0f / (float)elapsed;
-    stats.frame_ms = (float)elapsed / 1000.0f / (float)window_frames;
+    float frames = (float)window_frames;
+
+    stats.fps = frames * 1000000.0f / (float)elapsed;
+    stats.frame_ms = (float)elapsed / 1000.0f / frames;
     stats.worst_frame_ms = (float)window_worst_us / 1000.0f;
-    stats.transfer_ms = (float)window_transfer_us / 1000.0f /
-                        (float)window_frames;
+    stats.transfer_ms = (float)window_transfer_us / 1000.0f / frames;
+    stats.wait_ms = (float)window_wait_us / 1000.0f / frames;
+    stats.render_ms = stats.frame_ms - stats.wait_ms;
 
     if (fps_logging)
     {
-        printf("FPS %.1f | frame avg %.1f ms, worst %.1f ms | "
-               "DMA transfer %.1f ms\n",
+        printf("[%s] FPS %.1f | frame %.1f ms (worst %.1f) | "
+               "core0 render %.1f ms, wait %.1f ms | DMA %.1f ms\n",
+               DISPLAY_DUAL_CORE ? "dual-core" : "single-core",
                stats.fps, stats.frame_ms, stats.worst_frame_ms,
-               stats.transfer_ms);
+               stats.render_ms, stats.wait_ms, stats.transfer_ms);
     }
 
     window_start_us = frame_end_us;
     window_frames = 0;
     window_transfer_us = 0;
+    window_wait_us = 0;
     window_worst_us = 0;
 }
 
@@ -403,7 +543,7 @@ void display_set_fps_logging(bool enabled)
 
 
 // --------------------------------------------------
-// DISPLAY FRAMEBUFFER USING DMA (timed)
+// SHOW FRAME
 // --------------------------------------------------
 
 void display_show(void)
@@ -411,51 +551,36 @@ void display_show(void)
     if (fps_overlay)
         draw_fps_overlay();
 
-    uint32_t transfer_start_us = time_us_32();
+#if DISPLAY_DUAL_CORE
+    // Wait until core 1 has finished sending the previous frame.
+    // That buffer becomes our next back buffer.
+    uint32_t wait_start = time_us_32();
 
-    set_address_window(0, 0,
-                       SCREEN_WIDTH - 1,
-                       SCREEN_HEIGHT - 1);
+    while (transfer_busy)
+        __wfe();
 
-    write_command(0x2C);
+    __dmb();
+    uint32_t wait_us = time_us_32() - wait_start;
+    uint32_t transfer_us = core1_transfer_us;
 
-    gpio_put(PIN_CS, 0);
-    gpio_put(PIN_DC, 1);
+    // Hand the finished frame to core 1...
+    transfer_index = back_index;
+    __dmb();
+    transfer_busy = true;
+    __sev();
 
-    dma_channel_config config =
-        dma_channel_get_default_config(dma_channel);
+    // ...and draw the next frame into the other buffer meanwhile.
+    back_index ^= 1;
+    framebuffer = framebuffers[back_index];
 
-    channel_config_set_transfer_data_size(
-        &config, DMA_SIZE_8);
+    update_stats(time_us_32(), wait_us, transfer_us);
+#else
+    uint32_t start = time_us_32();
+    transfer_frame(framebuffer);
+    uint32_t transfer_us = time_us_32() - start;
 
-    channel_config_set_read_increment(
-        &config, true);
-
-    channel_config_set_write_increment(
-        &config, false);
-
-    channel_config_set_dreq(
-        &config, spi_get_dreq(SPI_PORT, true));
-
-    dma_channel_configure(
-        dma_channel,
-        &config,
-        &spi_get_hw(SPI_PORT)->dr,
-        framebuffer,
-        sizeof(framebuffer),
-        true
-    );
-
-    dma_channel_wait_for_finish_blocking(dma_channel);
-
-    while (spi_is_busy(SPI_PORT))
-    {
-        tight_loop_contents();
-    }
-
-    gpio_put(PIN_CS, 1);
-
-    update_stats(transfer_start_us, time_us_32());
+    update_stats(time_us_32(), transfer_us, transfer_us);
+#endif
 }
 
 
