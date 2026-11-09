@@ -5,7 +5,7 @@
 #include "input/joystick.h"
 #include "sound/sound.h"
 
-#include "space_shooter.h"
+#include "menu.h"
 
 #include <stdlib.h>
 
@@ -27,13 +27,9 @@ int main(void)
 
     srand(time_us_32());
 
-    // Initialize game
+    // Show the game-select menu (never returns)
 
-    space_shooter_init();
-
-    // Start Space Shooter
-
-    space_shooter_run();
+    menu_run();
 
     return 0;
 }

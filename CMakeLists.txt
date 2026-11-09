@@ -37,7 +37,11 @@ pico_sdk_init()
 
 add_executable(handheld
     handheld.c
+    menu.c
     space_shooter.c
+    snake.c
+
+    ui/ui.c
 
     input/buttons.c
     input/joystick.c
@@ -50,7 +54,7 @@ add_executable(handheld
     sound/sound.c
 )
 
-# Space Shooter runs in landscape (320x240).
+# The menu and all its games run in landscape (320x240).
 target_compile_definitions(handheld PRIVATE DISPLAY_LANDSCAPE=1)
 
 

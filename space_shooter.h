@@ -75,6 +75,11 @@ typedef struct
 } SpaceShooter;
 
 void space_shooter_init(void);
+
+// Runs the game (title screen, play, game over). Returns when the
+// player presses D on the title or game-over screen.
 void space_shooter_run(void);
+
+uint32_t space_shooter_best_score(void);
 
 #endif

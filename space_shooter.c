@@ -5,6 +5,7 @@
 #include "input/joystick.h"
 #include "input/buttons.h"
 #include "sound/sound.h"
+#include "ui/ui.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,21 +49,8 @@
 
 #define PI_F                     3.14159265f
 
-// Convert 8-bit RGB to RGB565.
-#define RGB565(r, g, b) \
-    ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
-
-// UI palette.
-#define COL_HUD_BG       RGB565(10, 14, 40)
-#define COL_PANEL_BG     RGB565(12, 16, 48)
-#define COL_ACCENT       RGB565(0, 200, 255)
-#define COL_ACCENT_DIM   RGB565(0, 70, 100)
-#define COL_LABEL        RGB565(140, 150, 180)
-#define COL_DIM          RGB565(60, 64, 80)
-#define COL_ORANGE       RGB565(255, 140, 0)
-#define COL_DARK_RED     RGB565(120, 20, 0)
-#define COL_PINK         RGB565(255, 60, 90)
-#define COL_CYAN         RGB565(0, 230, 255)
+// Pressing D on the title or game-over screen returns to the menu.
+#define BUTTON_MENU              5
 
 #define COL_SHIP_HULL    RGB565(210, 220, 235)
 #define COL_SHIP_WING    RGB565(40, 110, 220)
@@ -257,116 +245,6 @@ static bool new_best = false;
 // ==========================================
 // DRAWING HELPERS
 // ==========================================
-
-static int text_width(const char *text, int scale)
-{
-    int len = (int)strlen(text);
-    return (len > 0) ? len * 6 * scale - scale : 0;
-}
-
-static void draw_text_centered(int y, const char *text,
-                               uint16_t color, int scale)
-{
-    int x = (SCREEN_WIDTH - text_width(text, scale)) / 2;
-    display_draw_string(x, y, text, color, scale);
-}
-
-static void draw_number_centered(int y, int number,
-                                 uint16_t color, int scale)
-{
-    char buffer[12];
-    snprintf(buffer, sizeof(buffer), "%d", number);
-    draw_text_centered(y, buffer, color, scale);
-}
-
-static void fill_circle(int cx, int cy, int r, uint16_t color)
-{
-    if (r <= 0)
-    {
-        display_draw_pixel(cx, cy, color);
-        return;
-    }
-
-    for (int dy = -r; dy <= r; dy++)
-    {
-        int dx = (int)sqrtf((float)(r * r - dy * dy));
-        display_fill_rect(cx - dx, cy + dy, 2 * dx + 1, 1, color);
-    }
-}
-
-static void draw_circle(int cx, int cy, int r, uint16_t color)
-{
-    int x = r;
-    int y = 0;
-    int err = 1 - r;
-
-    while (x >= y)
-    {
-        display_draw_pixel(cx + x, cy + y, color);
-        display_draw_pixel(cx + y, cy + x, color);
-        display_draw_pixel(cx - y, cy + x, color);
-        display_draw_pixel(cx - x, cy + y, color);
-        display_draw_pixel(cx - x, cy - y, color);
-        display_draw_pixel(cx - y, cy - x, color);
-        display_draw_pixel(cx + y, cy - x, color);
-        display_draw_pixel(cx + x, cy - y, color);
-
-        y++;
-        if (err < 0)
-        {
-            err += 2 * y + 1;
-        }
-        else
-        {
-            x--;
-            err += 2 * (y - x) + 1;
-        }
-    }
-}
-
-static void fill_triangle(int x0, int y0, int x1, int y1,
-                          int x2, int y2, uint16_t color)
-{
-    int t;
-
-    // Sort vertices by y (y0 <= y1 <= y2).
-    if (y0 > y1) { t = y0; y0 = y1; y1 = t; t = x0; x0 = x1; x1 = t; }
-    if (y1 > y2) { t = y1; y1 = y2; y2 = t; t = x1; x1 = x2; x2 = t; }
-    if (y0 > y1) { t = y0; y0 = y1; y1 = t; t = x0; x0 = x1; x1 = t; }
-
-    if (y0 == y2)
-    {
-        int min_x = x0, max_x = x0;
-        if (x1 < min_x) min_x = x1;
-        if (x2 < min_x) min_x = x2;
-        if (x1 > max_x) max_x = x1;
-        if (x2 > max_x) max_x = x2;
-        display_fill_rect(min_x, y0, max_x - min_x + 1, 1, color);
-        return;
-    }
-
-    for (int y = y0; y <= y2; y++)
-    {
-        float xa = (float)x0 +
-                   (float)(x2 - x0) * (float)(y - y0) / (float)(y2 - y0);
-        float xb;
-
-        if (y < y1)
-            xb = (float)x0 +
-                 (float)(x1 - x0) * (float)(y - y0) / (float)(y1 - y0);
-        else if (y2 == y1)
-            xb = (float)x1;
-        else
-            xb = (float)x1 +
-                 (float)(x2 - x1) * (float)(y - y1) / (float)(y2 - y1);
-
-        int a = (int)(xa + 0.5f);
-        int b = (int)(xb + 0.5f);
-        if (a > b) { t = a; a = b; b = t; }
-
-        display_fill_rect(a, y, b - a + 1, 1, color);
-    }
-}
 
 // 7x6 heart icon, one byte per row (bit 6 = leftmost pixel).
 static const uint8_t heart_bitmap[6] = {
@@ -974,20 +852,20 @@ static void draw_ship(int x, int y, uint32_t now, bool thrust)
     if (thrust)
     {
         int flame = 5 + (int)((now / 40) % 4);
-        fill_triangle(x - 3, y + 9, x + 3, y + 9, x, y + 9 + flame,
+        ui_fill_triangle(x - 3, y + 9, x + 3, y + 9, x, y + 9 + flame,
                       COL_ORANGE);
-        fill_triangle(x - 1, y + 9, x + 1, y + 9, x, y + 6 + flame,
+        ui_fill_triangle(x - 1, y + 9, x + 1, y + 9, x, y + 6 + flame,
                       YELLOW);
     }
 
     // Wings.
-    fill_triangle(x - 3, y - 2, x - PLAYER_SIZE, y + 10, x - 3, y + 8,
+    ui_fill_triangle(x - 3, y - 2, x - PLAYER_SIZE, y + 10, x - 3, y + 8,
                   COL_SHIP_WING);
-    fill_triangle(x + 3, y - 2, x + PLAYER_SIZE, y + 10, x + 3, y + 8,
+    ui_fill_triangle(x + 3, y - 2, x + PLAYER_SIZE, y + 10, x + 3, y + 8,
                   COL_SHIP_WING);
 
     // Hull.
-    fill_triangle(x, y - PLAYER_SIZE, x - 5, y + 9, x + 5, y + 9,
+    ui_fill_triangle(x, y - PLAYER_SIZE, x - 5, y + 9, x + 5, y + 9,
                   COL_SHIP_HULL);
 
     // Wing-tip lights.
@@ -995,7 +873,7 @@ static void draw_ship(int x, int y, uint32_t now, bool thrust)
     display_fill_rect(x + PLAYER_SIZE - 1, y + 9, 2, 2, COL_PINK);
 
     // Cockpit.
-    fill_circle(x, y - 1, 2, COL_ACCENT);
+    ui_fill_circle(x, y - 1, 2, COL_ACCENT);
     display_draw_pixel(x - 1, y - 2, WHITE);
 }
 
@@ -1028,7 +906,7 @@ static void draw_asteroids(void)
         float s = sinf(a->angle);
 
         // Rocky body.
-        fill_circle(x, y, r - 1, COL_ROCK_DARK);
+        ui_fill_circle(x, y, r - 1, COL_ROCK_DARK);
 
         // Jagged rotating outline.
         int px[8];
@@ -1058,8 +936,8 @@ static void draw_asteroids(void)
         int cx2 = x - (int)(s * cr * 0.8f);
         int cy2 = y + (int)(c * cr * 0.8f);
 
-        fill_circle(cx1, cy1, r / 4, COL_ROCK_CRATER);
-        fill_circle(cx2, cy2, r / 5, COL_ROCK_CRATER);
+        ui_fill_circle(cx1, cy1, r / 4, COL_ROCK_CRATER);
+        ui_fill_circle(cx2, cy2, r / 5, COL_ROCK_CRATER);
     }
 }
 
@@ -1104,8 +982,8 @@ static void draw_food(uint32_t now)
     if (pulse == 3)
         pulse = 1;
 
-    draw_circle(x, y, 7 + pulse, ring);
-    fill_circle(x, y, 4, core);
+    ui_draw_circle(x, y, 7 + pulse, ring);
+    ui_fill_circle(x, y, 4, core);
     display_fill_rect(x - 1, y - 2, 2, 2, WHITE);
 }
 
@@ -1124,8 +1002,8 @@ static void draw_shield(uint32_t now)
     int y = (int)game.player.y;
     int wobble = (int)((now / 100) % 2);
 
-    draw_circle(x, y, 19 + wobble, COL_ACCENT);
-    draw_circle(x, y, 21 + wobble, COL_ACCENT_DIM);
+    ui_draw_circle(x, y, 19 + wobble, COL_ACCENT);
+    ui_draw_circle(x, y, 21 + wobble, COL_ACCENT_DIM);
 }
 
 // ==========================================
@@ -1186,7 +1064,7 @@ static void draw_level_banner(uint32_t now)
     snprintf(text, sizeof(text), "LEVEL %d", current_level);
 
     uint16_t color = ((now / 150) % 2) ? YELLOW : WHITE;
-    draw_text_centered(SCREEN_HEIGHT / 2 - 10, text, color, 3);
+    ui_text_centered(SCREEN_HEIGHT / 2 - 10, text, color, 3);
 }
 
 static void draw_hit_flash(uint32_t now)
@@ -1222,13 +1100,6 @@ static void draw_game(uint32_t now)
     display_show();
 }
 
-static void draw_panel(int x, int y, int w, int h)
-{
-    display_fill_rect(x, y, w, h, COL_PANEL_BG);
-    display_draw_rect(x, y, w, h, COL_ACCENT);
-    display_draw_rect(x + 2, y + 2, w - 4, h - 4, COL_ACCENT_DIM);
-}
-
 static void draw_title(uint32_t now)
 {
     display_clear(BLACK);
@@ -1236,7 +1107,7 @@ static void draw_title(uint32_t now)
 
     // Logo on one line: "SPACE" in cyan, "SHOOTER" in yellow.
     // "SPACE SHOOTER" is 13 characters at scale 3 (18 px each).
-    int logo_x = (SCREEN_WIDTH - text_width("SPACE SHOOTER", 3)) / 2;
+    int logo_x = (SCREEN_WIDTH - ui_text_width("SPACE SHOOTER", 3)) / 2;
     display_draw_string(logo_x, 16, "SPACE", COL_ACCENT, 3);
     display_draw_string(logo_x + 6 * 18, 16, "SHOOTER", YELLOW, 3);
 
@@ -1252,7 +1123,7 @@ static void draw_title(uint32_t now)
     const int label_x = panel_x + 16;
     const int value_x = panel_x + 84;
 
-    draw_panel(panel_x, panel_y, panel_w, panel_h);
+    ui_draw_panel(panel_x, panel_y, panel_w, panel_h);
 
     display_draw_string(label_x, panel_y + 12, "MOVE", COL_LABEL, 1);
     display_draw_string(value_x, panel_y + 12, "JOYSTICK", WHITE, 1);
@@ -1264,8 +1135,8 @@ static void draw_title(uint32_t now)
     display_draw_string(value_x, panel_y + 44, "CLICK", WHITE, 1);
 
     display_draw_string(label_x, panel_y + 64, "COLLECT", COL_LABEL, 1);
-    fill_circle(value_x + 5, panel_y + 67, 3, COL_CYAN);
-    draw_circle(value_x + 5, panel_y + 67, 5, COL_ACCENT);
+    ui_fill_circle(value_x + 5, panel_y + 67, 3, COL_CYAN);
+    ui_draw_circle(value_x + 5, panel_y + 67, 5, COL_ACCENT);
     display_draw_string(value_x + 16, panel_y + 64, "FOR SHIELD", WHITE, 1);
 
     if (game.best_score > 0)
@@ -1273,11 +1144,14 @@ static void draw_title(uint32_t now)
         char text[24];
         snprintf(text, sizeof(text), "BEST %lu",
                  (unsigned long)game.best_score);
-        draw_text_centered(panel_y + panel_h + 6, text, COL_LABEL, 1);
+        ui_text_centered(panel_y + panel_h + 6, text, COL_LABEL, 1);
     }
 
     if ((now / 500) % 2 == 0)
-        draw_text_centered(SCREEN_HEIGHT - 24, "CLICK TO START", WHITE, 2);
+        ui_text_centered(SCREEN_HEIGHT - 24, "CLICK TO START", WHITE, 2);
+
+    display_draw_string(SCREEN_WIDTH - 48, SCREEN_HEIGHT - 10,
+                        "D: MENU", COL_LABEL, 1);
 
     display_show();
 }
@@ -1294,27 +1168,30 @@ static void draw_game_over(uint32_t now)
     const int panel_x = (SCREEN_WIDTH - panel_w) / 2;
     const int panel_y = 20;
 
-    draw_panel(panel_x, panel_y, panel_w, panel_h);
+    ui_draw_panel(panel_x, panel_y, panel_w, panel_h);
 
-    draw_text_centered(panel_y + 16, "GAME OVER", RED, 3);
+    ui_text_centered(panel_y + 16, "GAME OVER", RED, 3);
     display_draw_line(panel_x + 20, panel_y + 46,
                       panel_x + panel_w - 21, panel_y + 46,
                       COL_ACCENT_DIM);
 
-    draw_text_centered(panel_y + 58, "SCORE", COL_LABEL, 1);
-    draw_number_centered(panel_y + 70, (int)game.score, YELLOW, 3);
+    ui_text_centered(panel_y + 58, "SCORE", COL_LABEL, 1);
+    ui_number_centered(panel_y + 70, (int)game.score, YELLOW, 3);
 
-    draw_text_centered(panel_y + 106, "BEST", COL_LABEL, 1);
-    draw_number_centered(panel_y + 118, (int)game.best_score, GREEN, 2);
+    ui_text_centered(panel_y + 106, "BEST", COL_LABEL, 1);
+    ui_number_centered(panel_y + 118, (int)game.best_score, GREEN, 2);
 
     if (new_best && ((now / 250) % 2 == 0))
-        draw_text_centered(panel_y + 144, "NEW BEST", YELLOW, 2);
+        ui_text_centered(panel_y + 144, "NEW BEST", YELLOW, 2);
 
     // Only offer restart after a short pause so a held button
     // doesn't skip straight past this screen.
     if (now - game_over_time > RESTART_DELAY_MS && (now / 500) % 2 == 0)
-        draw_text_centered(SCREEN_HEIGHT - 32, "CLICK TO RESTART",
-                           WHITE, 2);
+        ui_text_centered(SCREEN_HEIGHT - 32, "CLICK TO RESTART",
+                         WHITE, 2);
+
+    display_draw_string(SCREEN_WIDTH - 48, SCREEN_HEIGHT - 10,
+                        "D: MENU", COL_LABEL, 1);
 
     display_show();
 }
@@ -1352,18 +1229,27 @@ static void update_level(uint32_t now)
     }
 }
 
+uint32_t space_shooter_best_score(void)
+{
+    return game.best_score;
+}
+
 void space_shooter_run(void)
 {
     if (!stars_ready)
         init_stars();
 
+    // Always enter through the title screen.
+    screen_state = STATE_TITLE;
+    clear_effects();
+
     uint32_t previous_time =
         to_ms_since_boot(get_absolute_time());
 
     bool click_was_pressed = button_pressed(BUTTON_CLICK);
+    bool menu_was_pressed = button_pressed(BUTTON_MENU);
 
-    if (screen_state == STATE_TITLE)
-        sound_music_play(&SONG_TITLE);
+    sound_music_play(&SONG_TITLE);
 
     while (true)
     {
@@ -1379,6 +1265,10 @@ void space_shooter_run(void)
         bool click_edge = click && !click_was_pressed;
         click_was_pressed = click;
 
+        bool menu = button_pressed(BUTTON_MENU);
+        bool menu_edge = menu && !menu_was_pressed;
+        menu_was_pressed = menu;
+
         update_stars(dt);
         update_particles(dt);
         update_popups(dt);
@@ -1386,6 +1276,12 @@ void space_shooter_run(void)
         if (screen_state == STATE_TITLE)
         {
             draw_title(now);
+
+            if (menu_edge)
+            {
+                sound_stop();
+                return;
+            }
 
             if (click_edge)
                 start_game(now);
@@ -1399,7 +1295,15 @@ void space_shooter_run(void)
             if (!sound_music_is_playing())
                 sound_music_play(&SONG_TITLE);
 
-            if (click_edge && now - game_over_time > RESTART_DELAY_MS)
+            bool ready = now - game_over_time > RESTART_DELAY_MS;
+
+            if (menu_edge && ready)
+            {
+                sound_stop();
+                return;
+            }
+
+            if (click_edge && ready)
                 start_game(now);
         }
         else
