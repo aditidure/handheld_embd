@@ -31,11 +31,9 @@
 
 #define POINTS_PER_APPLE     10
 
-#define BUTTON_A             2     // up
-#define BUTTON_B             3     // right
-#define BUTTON_C             4     // down
-#define BUTTON_D             5     // left (and "menu" on game over)
-#define BUTTON_CLICK         8
+// Buttons: A = up, B = right, C = down, D = left.
+// On the game-over screen D returns to the menu.
+#define BUTTON_MENU          BTN_D
 
 #define JOY_THRESHOLD        0.6f
 
@@ -180,13 +178,15 @@ static void set_direction(int dx, int dy)
 
 static void read_direction_input(void)
 {
-    if (button_pressed(BUTTON_A))
+    // Each debounced press turns once, so quick taps between
+    // frames are never lost.
+    if (button_just_pressed(BTN_A))
         set_direction(0, -1);
-    else if (button_pressed(BUTTON_B))
+    if (button_just_pressed(BTN_B))
         set_direction(1, 0);
-    else if (button_pressed(BUTTON_C))
+    if (button_just_pressed(BTN_C))
         set_direction(0, 1);
-    else if (button_pressed(BUTTON_D))
+    if (button_just_pressed(BTN_D))
         set_direction(-1, 0);
 
     // Joystick also steers. Y is inverted to match the space shooter.
@@ -441,20 +441,16 @@ void snake_game_run(void)
 
     reset_game(now);
 
-    bool click_was_pressed = button_pressed(BUTTON_CLICK);
-    bool menu_was_pressed = button_pressed(BUTTON_D);
+    // Ignore presses left over from the menu.
+    buttons_clear();
 
     while (true)
     {
         now = to_ms_since_boot(get_absolute_time());
 
-        bool click = button_pressed(BUTTON_CLICK);
-        bool click_edge = click && !click_was_pressed;
-        click_was_pressed = click;
-
-        bool menu = button_pressed(BUTTON_D);
-        bool menu_edge = menu && !menu_was_pressed;
-        menu_was_pressed = menu;
+        buttons_poll();
+        bool click_edge = button_just_pressed(BTN_CLICK);
+        bool menu_edge = button_just_pressed(BUTTON_MENU);
 
         if (state == SNAKE_READY)
         {

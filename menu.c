@@ -19,9 +19,6 @@
 // CONSTANTS
 // ==========================================
 
-#define BUTTON_B         3
-#define BUTTON_D         5
-#define BUTTON_CLICK     8
 
 #define JOY_ON           0.6f   // stick must pass this to move
 #define JOY_OFF          0.3f   // and return inside this to re-arm
@@ -226,11 +223,8 @@ void menu_run(void)
 
     while (true)
     {
-        // Read current button states so a button still held from
-        // the game we just left doesn't trigger anything.
-        bool click_was = button_pressed(BUTTON_CLICK);
-        bool left_was = button_pressed(BUTTON_D);
-        bool right_was = button_pressed(BUTTON_B);
+        // Ignore presses left over from the game we just left.
+        buttons_clear();
         bool stick_armed = false;
 
         bool launch = false;
@@ -239,14 +233,12 @@ void menu_run(void)
         {
             uint32_t now = to_ms_since_boot(get_absolute_time());
 
-            bool click = button_pressed(BUTTON_CLICK);
-            bool left = button_pressed(BUTTON_D);
-            bool right = button_pressed(BUTTON_B);
+            buttons_poll();
 
             int move = 0;
-            if (left && !left_was)
+            if (button_just_pressed(BTN_D))
                 move = -1;
-            if (right && !right_was)
+            if (button_just_pressed(BTN_B))
                 move = 1;
 
             // Joystick: one step per push, re-armed when centred.
@@ -272,12 +264,8 @@ void menu_run(void)
                 sound_sfx_play(&SFX_MOVE);
             }
 
-            if (click && !click_was)
+            if (button_just_pressed(BTN_CLICK))
                 launch = true;
-
-            click_was = click;
-            left_was = left;
-            right_was = right;
 
             draw_menu(selected, now);
             sleep_ms(FRAME_MS);

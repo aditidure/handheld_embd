@@ -31,7 +31,6 @@
 #define COLLISION_COOLDOWN       900
 #define FOOD_SPAWN_INTERVAL      5000
 
-#define BUTTON_CLICK             8
 
 // ==========================================
 // UI CONSTANTS
@@ -50,7 +49,7 @@
 #define PI_F                     3.14159265f
 
 // Pressing D on the title or game-over screen returns to the menu.
-#define BUTTON_MENU              5
+#define BUTTON_MENU              BTN_D
 
 #define COL_SHIP_HULL    RGB565(210, 220, 235)
 #define COL_SHIP_WING    RGB565(40, 110, 220)
@@ -391,7 +390,6 @@ void space_shooter_init(void)
     game.shield_charges = 0;
     game.shield_active = false;
     game.shield_end_time = 0;
-    game.shield_button_was_pressed = false;
 
     // Food state.
     game.food_x = 0.0f;
@@ -522,16 +520,18 @@ static void fire_bullet(int direction, uint32_t now)
 static void handle_shooting(uint32_t now)
 {
     // A = up, B = right, C = down, D = left.
-    if (button_pressed(2))
+    // Holding a button keeps firing (rate-limited by SHOT_INTERVAL).
+    // A quick tap between frames still fires once.
+    if (button_down(BTN_A) || button_just_pressed(BTN_A))
         fire_bullet(0, now);
 
-    if (button_pressed(3))
+    if (button_down(BTN_B) || button_just_pressed(BTN_B))
         fire_bullet(1, now);
 
-    if (button_pressed(4))
+    if (button_down(BTN_C) || button_just_pressed(BTN_C))
         fire_bullet(2, now);
 
-    if (button_pressed(5))
+    if (button_down(BTN_D) || button_just_pressed(BTN_D))
         fire_bullet(3, now);
 }
 
@@ -578,10 +578,8 @@ static void check_food_collection(void)
 
 static void update_shield(uint32_t now)
 {
-    bool pressed = button_pressed(BUTTON_CLICK);
-
     // Activate only on a fresh press, not continuously while held.
-    if (pressed && !game.shield_button_was_pressed)
+    if (button_just_pressed(BTN_CLICK))
     {
         if (game.shield_charges > 0 && !game.shield_active)
         {
@@ -591,8 +589,6 @@ static void update_shield(uint32_t now)
             sound_sfx_play(&SFX_SHIELD_ON);
         }
     }
-
-    game.shield_button_was_pressed = pressed;
 
     if (game.shield_active &&
         (int32_t)(now - game.shield_end_time) >= 0)
@@ -1127,9 +1123,6 @@ static void start_game(uint32_t now)
     space_shooter_init();
     game.best_score = best;
 
-    // The click that started the game must not also fire the shield.
-    game.shield_button_was_pressed = true;
-
     current_level = 1;
     level_banner_until = now + LEVEL_BANNER_MS;
     screen_state = STATE_PLAYING;
@@ -1165,8 +1158,8 @@ void space_shooter_run(void)
     uint32_t previous_time =
         to_ms_since_boot(get_absolute_time());
 
-    bool click_was_pressed = button_pressed(BUTTON_CLICK);
-    bool menu_was_pressed = button_pressed(BUTTON_MENU);
+    // Ignore presses left over from the menu.
+    buttons_clear();
 
     while (true)
     {
@@ -1178,13 +1171,9 @@ void space_shooter_run(void)
         if (dt > 0.05f)
             dt = 0.05f;
 
-        bool click = button_pressed(BUTTON_CLICK);
-        bool click_edge = click && !click_was_pressed;
-        click_was_pressed = click;
-
-        bool menu = button_pressed(BUTTON_MENU);
-        bool menu_edge = menu && !menu_was_pressed;
-        menu_was_pressed = menu;
+        buttons_poll();
+        bool click_edge = button_just_pressed(BTN_CLICK);
+        bool menu_edge = button_just_pressed(BUTTON_MENU);
 
         update_stars(dt);
         update_particles(dt);

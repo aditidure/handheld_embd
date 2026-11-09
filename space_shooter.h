@@ -66,7 +66,6 @@ typedef struct
     int shield_charges;
     bool shield_active;
     uint32_t shield_end_time;
-    bool shield_button_was_pressed;
 
     float food_x;
     float food_y;
