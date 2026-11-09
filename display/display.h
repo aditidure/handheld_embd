@@ -53,6 +53,15 @@ void display_draw_number(int x, int y, int number,
                          uint16_t color, int scale);
 
 // --------------------------------------------------
+// Power
+// --------------------------------------------------
+// Panel "display off" + "sleep in" (and the reverse). Waits for any
+// frame still being sent. The backlight is not controlled here: it
+// needs its own GPIO / transistor to be switched off.
+void display_sleep(void);
+void display_wake(void);
+
+// --------------------------------------------------
 // Performance measurement
 // --------------------------------------------------
 // display_show() times every frame. Stats are averaged over

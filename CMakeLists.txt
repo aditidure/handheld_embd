@@ -54,6 +54,8 @@ add_executable(handheld
     sound/sound.c
 
     save/save.c
+
+    power/power.c
 )
 
 # Dual-core rendering: core 1 sends frames to the display while core 0

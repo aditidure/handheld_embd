@@ -585,6 +585,39 @@ void display_show(void)
 
 
 // --------------------------------------------------
+// PANEL POWER
+// --------------------------------------------------
+
+void display_sleep(void)
+{
+#if DISPLAY_DUAL_CORE
+    // Let core 1 finish sending the last frame before we use SPI.
+    while (transfer_busy)
+        __wfe();
+#endif
+
+    write_command(0x28);   // DISPOFF
+    write_command(0x10);   // SLPIN
+    sleep_ms(5);
+}
+
+void display_wake(void)
+{
+    write_command(0x11);   // SLPOUT
+    sleep_ms(120);         // panel needs 120 ms after sleep-out
+    write_command(0x29);   // DISPON
+
+    // Restart FPS measurement so the sleep is not counted as a frame.
+    window_start_us = 0;
+    window_frames = 0;
+    window_transfer_us = 0;
+    window_wait_us = 0;
+    window_worst_us = 0;
+    last_frame_end_us = 0;
+}
+
+
+// --------------------------------------------------
 // DRAW PIXEL
 // --------------------------------------------------
 

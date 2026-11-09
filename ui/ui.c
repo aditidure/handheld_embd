@@ -118,3 +118,19 @@ void ui_draw_panel(int x, int y, int w, int h)
     display_draw_rect(x, y, w, h, COL_ACCENT);
     display_draw_rect(x + 2, y + 2, w - 4, h - 4, COL_ACCENT_DIM);
 }
+
+void ui_draw_pause_overlay(void)
+{
+    const int w = 200;
+    const int h = 100;
+    const int x = (SCREEN_WIDTH - w) / 2;
+    const int y = (SCREEN_HEIGHT - h) / 2;
+
+    ui_draw_panel(x, y, w, h);
+
+    ui_text_centered(y + 16, "PAUSED", YELLOW, 3);
+    display_draw_line(x + 20, y + 46, x + w - 21, y + 46, COL_ACCENT_DIM);
+
+    ui_text_centered(y + 58, "CLICK: RESUME", WHITE, 1);
+    ui_text_centered(y + 76, "D: QUIT TO MENU", COL_LABEL, 1);
+}

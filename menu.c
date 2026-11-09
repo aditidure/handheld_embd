@@ -10,6 +10,7 @@
 #include "space_shooter.h"
 #include "snake.h"
 #include "save/save.h"
+#include "power/power.h"
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -35,6 +36,11 @@
 // Hold A this long to reset all best scores. C toggles the FPS box.
 #define RESET_HOLD_MS    3000
 #define RESET_MSG_MS     1500
+
+// Hold the joystick click this long to put the handheld to sleep.
+// A shorter press (released before this) starts the selected game.
+#define SLEEP_HOLD_MS    2000
+#define HOLD_HINT_MS     400
 
 #define COL_CARD_BG      RGB565(8, 10, 24)
 #define COL_ROCK         RGB565(120, 95, 75)
@@ -216,7 +222,7 @@ static void draw_menu(int selected, uint32_t now)
         ui_text_centered(192, "CLICK TO PLAY", WHITE, 2);
 
     ui_text_centered(212, footer_text, COL_LABEL, 1);
-    ui_text_centered(226, "C: FPS    HOLD A: RESET SCORES", COL_DIM, 1);
+    ui_text_centered(226, "C: FPS   HOLD A: RESET   HOLD CLICK: SLEEP", COL_DIM, 1);
 
     display_show();
 }
@@ -238,6 +244,8 @@ void menu_run(void)
         uint32_t reset_hold_start = 0;
         uint32_t reset_msg_until = 0;
         bool reset_done = false;
+
+        uint32_t click_hold_start = 0;
 
         bool launch = false;
 
@@ -276,8 +284,31 @@ void menu_run(void)
                 sound_sfx_play(&SFX_MOVE);
             }
 
+            // Click: short press = play, hold 2 s = sleep.
+            // The game starts on release so a hold can mean sleep.
             if (button_just_pressed(BTN_CLICK))
-                launch = true;
+                click_hold_start = now ? now : 1;
+
+            if (click_hold_start != 0)
+            {
+                if (!button_down(BTN_CLICK))
+                {
+                    launch = true;
+                    click_hold_start = 0;
+                }
+                else if (now - click_hold_start >= SLEEP_HOLD_MS)
+                {
+                    click_hold_start = 0;
+                    power_sleep();
+                    continue;
+                }
+            }
+            else
+            {
+                // Auto-sleep after a long time without input.
+                if (power_sleep_if_idle())
+                    continue;
+            }
 
             // C: show / hide the FPS counter (stays on in games).
             if (button_just_pressed(BTN_C))
@@ -311,6 +342,9 @@ void menu_run(void)
                 footer_text = "BEST SCORES RESET";
             else if (reset_hold_start != 0 && !reset_done)
                 footer_text = "KEEP HOLDING TO RESET SCORES";
+            else if (click_hold_start != 0 &&
+                     now - click_hold_start >= HOLD_HINT_MS)
+                footer_text = "KEEP HOLDING TO SLEEP";
             else
                 footer_text = "JOYSTICK OR B D TO CHOOSE";
 

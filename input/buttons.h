@@ -52,6 +52,13 @@ bool button_just_pressed(Button button);
 // switching screens so a stale press does not carry over.
 void buttons_clear(void);
 
+// True if any button is currently held (debounced).
+bool buttons_any_down(void);
+
+// Time (ms since boot) of the most recent debounced press of any
+// button. Used to detect inactivity for auto-sleep.
+uint32_t buttons_last_press_ms(void);
+
 // Raw, NOT debounced pin read. Kept for the hardware test programs.
 // Returns 1 if the button on `gpio` is pressed, 0 otherwise.
 int button_pressed(uint gpio);

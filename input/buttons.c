@@ -25,6 +25,7 @@ static volatile bool stable_down[BTN_COUNT];     // debounced state
 static volatile uint8_t pending_presses[BTN_COUNT];
 
 static uint8_t change_count[BTN_COUNT];         // ms the pin disagreed
+static volatile uint32_t last_press_ms = 0;
 
 // --------------------------------------------------
 // Snapshot used by the game for the current frame
@@ -60,8 +61,13 @@ static bool sample_buttons(repeating_timer_t *timer)
             stable_down[i] = raw_down;
             change_count[i] = 0;
 
-            if (raw_down && pending_presses[i] < 255)
-                pending_presses[i]++;
+            if (raw_down)
+            {
+                if (pending_presses[i] < 255)
+                    pending_presses[i]++;
+
+                last_press_ms = to_ms_since_boot(get_absolute_time());
+            }
         }
     }
 
@@ -138,6 +144,21 @@ void buttons_clear(void)
     }
 
     restore_interrupts(irq);
+}
+
+bool buttons_any_down(void)
+{
+    for (int i = 0; i < BTN_COUNT; i++)
+    {
+        if (stable_down[i])
+            return true;
+    }
+    return false;
+}
+
+uint32_t buttons_last_press_ms(void)
+{
+    return last_press_ms;
 }
 
 int button_pressed(uint gpio)

@@ -7,6 +7,7 @@
 #include "sound/sound.h"
 #include "ui/ui.h"
 #include "save/save.h"
+#include "power/power.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -76,6 +77,7 @@ typedef enum
 {
     STATE_TITLE,
     STATE_PLAYING,
+    STATE_PAUSED,
     STATE_GAME_OVER
 } ScreenState;
 
@@ -519,7 +521,8 @@ static void fire_bullet(int direction, uint32_t now)
 
 static void handle_shooting(uint32_t now)
 {
-    // A = up, B = right, C = down, D = left.
+    // A = up, B = right, D = left. (C is the shield; asteroids only
+    // fall from above, so shooting down was rarely useful.)
     // Holding a button keeps firing (rate-limited by SHOT_INTERVAL).
     // A quick tap between frames still fires once.
     if (button_down(BTN_A) || button_just_pressed(BTN_A))
@@ -527,9 +530,6 @@ static void handle_shooting(uint32_t now)
 
     if (button_down(BTN_B) || button_just_pressed(BTN_B))
         fire_bullet(1, now);
-
-    if (button_down(BTN_C) || button_just_pressed(BTN_C))
-        fire_bullet(2, now);
 
     if (button_down(BTN_D) || button_just_pressed(BTN_D))
         fire_bullet(3, now);
@@ -578,8 +578,8 @@ static void check_food_collection(void)
 
 static void update_shield(uint32_t now)
 {
-    // Activate only on a fresh press, not continuously while held.
-    if (button_just_pressed(BTN_CLICK))
+    // C activates the shield, only on a fresh press (not while held).
+    if (button_just_pressed(BTN_C))
     {
         if (game.shield_charges > 0 && !game.shield_active)
         {
@@ -996,7 +996,8 @@ static void draw_hit_flash(uint32_t now)
     display_fill_rect(SCREEN_WIDTH - 4, 0, 4, SCREEN_HEIGHT, RED);
 }
 
-static void draw_game(uint32_t now)
+// Draw the play field into the framebuffer without showing it.
+static void render_game(uint32_t now)
 {
     display_clear(BLACK);
 
@@ -1013,7 +1014,19 @@ static void draw_game(uint32_t now)
     draw_hud(now);
     draw_level_banner(now);
     draw_hit_flash(now);
+}
 
+static void draw_game(uint32_t now)
+{
+    render_game(now);
+    display_show();
+}
+
+// Frozen game (as it was when paused) with the pause box on top.
+static void draw_paused(uint32_t pause_time)
+{
+    render_game(pause_time);
+    ui_draw_pause_overlay();
     display_show();
 }
 
@@ -1042,19 +1055,23 @@ static void draw_title(uint32_t now)
 
     ui_draw_panel(panel_x, panel_y, panel_w, panel_h);
 
-    display_draw_string(label_x, panel_y + 12, "MOVE", COL_LABEL, 1);
-    display_draw_string(value_x, panel_y + 12, "JOYSTICK", WHITE, 1);
+    display_draw_string(label_x, panel_y + 10, "MOVE", COL_LABEL, 1);
+    display_draw_string(value_x, panel_y + 10, "JOYSTICK", WHITE, 1);
 
-    display_draw_string(label_x, panel_y + 28, "FIRE", COL_LABEL, 1);
-    display_draw_string(value_x, panel_y + 28, "A B C D", WHITE, 1);
+    display_draw_string(label_x, panel_y + 24, "FIRE", COL_LABEL, 1);
+    display_draw_string(value_x, panel_y + 24, "A UP B RIGHT D LEFT",
+                        WHITE, 1);
 
-    display_draw_string(label_x, panel_y + 44, "SHIELD", COL_LABEL, 1);
-    display_draw_string(value_x, panel_y + 44, "CLICK", WHITE, 1);
+    display_draw_string(label_x, panel_y + 38, "SHIELD", COL_LABEL, 1);
+    display_draw_string(value_x, panel_y + 38, "C", WHITE, 1);
 
-    display_draw_string(label_x, panel_y + 64, "COLLECT", COL_LABEL, 1);
-    ui_fill_circle(value_x + 5, panel_y + 67, 3, COL_CYAN);
-    ui_draw_circle(value_x + 5, panel_y + 67, 5, COL_ACCENT);
-    display_draw_string(value_x + 16, panel_y + 64, "FOR SHIELD", WHITE, 1);
+    display_draw_string(label_x, panel_y + 52, "PAUSE", COL_LABEL, 1);
+    display_draw_string(value_x, panel_y + 52, "CLICK", WHITE, 1);
+
+    display_draw_string(label_x, panel_y + 70, "COLLECT", COL_LABEL, 1);
+    ui_fill_circle(value_x + 5, panel_y + 73, 3, COL_CYAN);
+    ui_draw_circle(value_x + 5, panel_y + 73, 5, COL_ACCENT);
+    display_draw_string(value_x + 16, panel_y + 70, "FOR SHIELD", WHITE, 1);
 
     if (game.best_score > 0)
     {
@@ -1141,6 +1158,28 @@ static void update_level(uint32_t now)
     }
 }
 
+// After a pause, push every game timer forward by the time spent
+// paused, so shields, cooldowns and spawns carry on where they left
+// off instead of expiring or firing all at once.
+static void shift_timers(uint32_t paused_ms)
+{
+    for (int i = 0; i < 4; i++)
+        game.last_shot_time[i] += paused_ms;
+
+    game.last_spawn_time += paused_ms;
+    game.last_collision_time += paused_ms;
+    game.shield_end_time += paused_ms;
+    game.last_food_spawn_time += paused_ms;
+
+    hit_flash_until += paused_ms;
+    level_banner_until += paused_ms;
+}
+
+static void quit_to_menu(void)
+{
+    sound_stop();
+}
+
 uint32_t space_shooter_best_score(void)
 {
     return save_get_best(SAVE_SPACE_SHOOTER);
@@ -1164,6 +1203,8 @@ void space_shooter_run(void)
     // Ignore presses left over from the menu.
     buttons_clear();
 
+    uint32_t pause_time = 0;
+
     while (true)
     {
         uint32_t now = to_ms_since_boot(get_absolute_time());
@@ -1178,9 +1219,17 @@ void space_shooter_run(void)
         bool click_edge = button_just_pressed(BTN_CLICK);
         bool menu_edge = button_just_pressed(BUTTON_MENU);
 
-        update_stars(dt);
-        update_particles(dt);
-        update_popups(dt);
+        // Everything stays frozen while paused.
+        if (screen_state != STATE_PAUSED)
+        {
+            update_stars(dt);
+            update_particles(dt);
+            update_popups(dt);
+        }
+
+        // Calm screens may fall asleep after a long time idle.
+        if (screen_state != STATE_PLAYING && power_sleep_if_idle())
+            continue;
 
         if (screen_state == STATE_TITLE)
         {
@@ -1188,7 +1237,7 @@ void space_shooter_run(void)
 
             if (menu_edge)
             {
-                sound_stop();
+                quit_to_menu();
                 return;
             }
 
@@ -1203,15 +1252,42 @@ void space_shooter_run(void)
 
             if (menu_edge && ready)
             {
-                sound_stop();
+                quit_to_menu();
                 return;
             }
 
             if (click_edge && ready)
                 start_game(now);
         }
+        else if (screen_state == STATE_PAUSED)
+        {
+            draw_paused(pause_time);
+
+            if (click_edge)
+            {
+                // Resume: carry on as if no time had passed.
+                shift_timers(now - pause_time);
+                screen_state = STATE_PLAYING;
+            }
+            else if (menu_edge)
+            {
+                // Quitting still counts the score towards the best.
+                save_submit_score(SAVE_SPACE_SHOOTER, game.score);
+                quit_to_menu();
+                return;
+            }
+        }
         else
         {
+            // Joystick click pauses the game.
+            if (click_edge)
+            {
+                pause_time = now;
+                screen_state = STATE_PAUSED;
+                sound_stop();
+                continue;
+            }
+
             update_player(dt);
             update_shield(now);
 

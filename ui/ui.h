@@ -41,4 +41,8 @@ void ui_fill_triangle(int x0, int y0, int x1, int y1,
 // Filled box with a double cyan border.
 void ui_draw_panel(int x, int y, int w, int h);
 
+// "PAUSED" box shared by all games:
+// CLICK resumes, D quits to the menu.
+void ui_draw_pause_overlay(void);
+
 #endif

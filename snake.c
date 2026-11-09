@@ -8,6 +8,7 @@
 #include "game/score.h"
 #include "ui/ui.h"
 #include "save/save.h"
+#include "power/power.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -77,6 +78,7 @@ typedef enum
 {
     SNAKE_READY,
     SNAKE_PLAYING,
+    SNAKE_PAUSED,
     SNAKE_OVER
 } SnakeState;
 
@@ -367,6 +369,8 @@ static void draw_ready(uint32_t now)
     ui_text_centered(SCREEN_HEIGHT / 2 - 20, "GET READY", color, 3);
     ui_text_centered(SCREEN_HEIGHT / 2 + 14,
                      "STEER WITH JOYSTICK OR A B C D", COL_LABEL, 1);
+    ui_text_centered(SCREEN_HEIGHT / 2 + 28,
+                     "CLICK TO PAUSE", COL_LABEL, 1);
 }
 
 static void draw_game_over_panel(uint32_t now)
@@ -414,6 +418,8 @@ static void draw(uint32_t now)
 
     if (state == SNAKE_READY)
         draw_ready(now);
+    else if (state == SNAKE_PAUSED)
+        ui_draw_pause_overlay();
     else if (state == SNAKE_OVER)
         draw_game_over_panel(now);
 
@@ -437,6 +443,7 @@ void snake_game_run(void)
 
     uint32_t now = to_ms_since_boot(get_absolute_time());
     uint32_t last_move = now;
+    uint32_t pause_time = 0;
 
     reset_game(now);
 
@@ -451,6 +458,11 @@ void snake_game_run(void)
         bool click_edge = button_just_pressed(BTN_CLICK);
         bool menu_edge = button_just_pressed(BUTTON_MENU);
 
+        // Pause and game-over screens may fall asleep when idle.
+        if ((state == SNAKE_PAUSED || state == SNAKE_OVER) &&
+            power_sleep_if_idle())
+            continue;
+
         if (state == SNAKE_READY)
         {
             read_direction_input();
@@ -463,6 +475,16 @@ void snake_game_run(void)
         }
         else if (state == SNAKE_PLAYING)
         {
+            // Joystick click pauses the game.
+            if (click_edge)
+            {
+                pause_time = now;
+                state = SNAKE_PAUSED;
+                sound_stop();
+                draw(now);
+                continue;
+            }
+
             read_direction_input();
 
             if (now - last_move >= move_interval)
@@ -470,6 +492,27 @@ void snake_game_run(void)
                 last_move = now;
                 step(now);
             }
+        }
+        else if (state == SNAKE_PAUSED)
+        {
+            if (click_edge)
+            {
+                // Resume: keep the same time left until the next move.
+                last_move += now - pause_time;
+                state = SNAKE_PLAYING;
+            }
+            else if (menu_edge)
+            {
+                // Quitting still counts the score towards the best.
+                save_submit_score(SAVE_SNAKE,
+                                  (uint32_t)score_get_current(&score));
+                sound_stop();
+                return;
+            }
+
+            // Keep the apple frozen as it was when paused.
+            draw(pause_time);
+            continue;
         }
         else
         {
