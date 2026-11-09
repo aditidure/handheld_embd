@@ -7,6 +7,7 @@
 #include "sound/sound.h"
 #include "game/score.h"
 #include "ui/ui.h"
+#include "save/save.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -91,7 +92,6 @@ static int moved_x, moved_y;
 
 static Cell food;
 static Score score;
-static bool score_ready = false;
 static bool new_best = false;
 
 static uint32_t move_interval;
@@ -203,8 +203,10 @@ static void read_direction_input(void)
 
 static void game_over(uint32_t now)
 {
-    new_best = score_get_current(&score) > score_get_best(&score);
-    score_update_best(&score);
+    // Saved to flash only if it beats the stored best.
+    new_best = save_submit_score(SAVE_SNAKE,
+                                 (uint32_t)score_get_current(&score));
+    score_set_best(&score, (int)save_get_best(SAVE_SNAKE));
 
     state = SNAKE_OVER;
     state_time = now;
@@ -425,16 +427,14 @@ static void draw(uint32_t now)
 
 int snake_game_best_score(void)
 {
-    return score_ready ? score_get_best(&score) : 0;
+    return (int)save_get_best(SAVE_SNAKE);
 }
 
 void snake_game_run(void)
 {
-    if (!score_ready)
-    {
-        score_init(&score);
-        score_ready = true;
-    }
+    // Best score persists in flash across power cycles.
+    score_init(&score);
+    score_set_best(&score, (int)save_get_best(SAVE_SNAKE));
 
     uint32_t now = to_ms_since_boot(get_absolute_time());
     uint32_t last_move = now;

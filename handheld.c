@@ -5,6 +5,7 @@
 #include "input/joystick.h"
 #include "sound/sound.h"
 
+#include "save/save.h"
 #include "menu.h"
 
 #include <stdlib.h>
@@ -22,6 +23,10 @@ int main(void)
     joystick_init();
 
     sound_init();
+
+    // Load best scores saved in flash
+
+    save_init();
 
     // Seed random number generator
 

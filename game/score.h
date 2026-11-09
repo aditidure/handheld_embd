@@ -18,4 +18,7 @@ int score_get_best(const Score *score);
 
 void score_update_best(Score *score);
 
+// Set the best score directly (e.g. after loading it from flash).
+void score_set_best(Score *score, int best);
+
 #endif

@@ -52,10 +52,18 @@ add_executable(handheld
     game/score.c
 
     sound/sound.c
+
+    save/save.c
 )
 
 # The menu and all its games run in landscape (320x240).
 target_compile_definitions(handheld PRIVATE DISPLAY_LANDSCAPE=1)
+
+# Flash access for persistent best scores.
+target_link_libraries(handheld
+    hardware_flash
+    pico_flash
+)
 
 
 # ==========================================

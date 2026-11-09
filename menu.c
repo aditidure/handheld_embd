@@ -9,6 +9,7 @@
 
 #include "space_shooter.h"
 #include "snake.h"
+#include "save/save.h"
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -31,6 +32,10 @@
 #define CARD_Y           56
 
 #define NUM_STARS        40
+
+// Hold A + C together this long to reset all best scores.
+#define RESET_HOLD_MS    2000
+#define RESET_MSG_MS     1500
 
 #define COL_CARD_BG      RGB565(8, 10, 24)
 #define COL_ROCK         RGB565(120, 95, 75)
@@ -194,6 +199,9 @@ static void draw_card(int index, bool selected, uint32_t now)
                         selected ? YELLOW : COL_DIM, 1);
 }
 
+// Footer text, replaced while a score reset is in progress.
+static const char *footer_text = "JOYSTICK OR B D TO CHOOSE";
+
 static void draw_menu(int selected, uint32_t now)
 {
     display_clear(BLACK);
@@ -208,7 +216,7 @@ static void draw_menu(int selected, uint32_t now)
     if ((now / 500) % 2 == 0)
         ui_text_centered(192, "CLICK TO PLAY", WHITE, 2);
 
-    ui_text_centered(222, "JOYSTICK OR B D TO CHOOSE", COL_LABEL, 1);
+    ui_text_centered(222, footer_text, COL_LABEL, 1);
 
     display_show();
 }
@@ -226,6 +234,10 @@ void menu_run(void)
         // Ignore presses left over from the game we just left.
         buttons_clear();
         bool stick_armed = false;
+
+        uint32_t reset_hold_start = 0;
+        uint32_t reset_msg_until = 0;
+        bool reset_done = false;
 
         bool launch = false;
 
@@ -266,6 +278,34 @@ void menu_run(void)
 
             if (button_just_pressed(BTN_CLICK))
                 launch = true;
+
+            // Hidden option: hold A + C for 2 s to reset best scores.
+            if (button_down(BTN_A) && button_down(BTN_C))
+            {
+                if (reset_hold_start == 0)
+                    reset_hold_start = now ? now : 1;
+
+                if (!reset_done &&
+                    now - reset_hold_start >= RESET_HOLD_MS)
+                {
+                    save_reset_all();
+                    sound_sfx_play(&SFX_SELECT);
+                    reset_done = true;
+                    reset_msg_until = now + RESET_MSG_MS;
+                }
+            }
+            else
+            {
+                reset_hold_start = 0;
+                reset_done = false;
+            }
+
+            if ((int32_t)(reset_msg_until - now) > 0)
+                footer_text = "BEST SCORES RESET";
+            else if (reset_hold_start != 0 && !reset_done)
+                footer_text = "KEEP HOLDING TO RESET SCORES";
+            else
+                footer_text = "JOYSTICK OR B D TO CHOOSE";
 
             draw_menu(selected, now);
             sleep_ms(FRAME_MS);

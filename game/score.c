@@ -28,6 +28,11 @@ int score_get_best(const Score *score)
     return score->best_score;
 }
 
+void score_set_best(Score *score, int best)
+{
+    score->best_score = (best > 0) ? best : 0;
+}
+
 void score_update_best(Score *score)
 {
     if (score->current_score > score->best_score) {

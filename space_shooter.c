@@ -6,6 +6,7 @@
 #include "input/buttons.h"
 #include "sound/sound.h"
 #include "ui/ui.h"
+#include "save/save.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -1143,7 +1144,7 @@ static void update_level(uint32_t now)
 
 uint32_t space_shooter_best_score(void)
 {
-    return game.best_score;
+    return save_get_best(SAVE_SPACE_SHOOTER);
 }
 
 void space_shooter_run(void)
@@ -1154,6 +1155,9 @@ void space_shooter_run(void)
     // Always enter through the title screen.
     screen_state = STATE_TITLE;
     clear_effects();
+
+    // Best score persists in flash across power cycles.
+    game.best_score = save_get_best(SAVE_SPACE_SHOOTER);
 
     uint32_t previous_time =
         to_ms_since_boot(get_absolute_time());
@@ -1227,9 +1231,10 @@ void space_shooter_run(void)
 
             if (game.game_over)
             {
-                new_best = game.score > game.best_score;
-                if (new_best)
-                    game.best_score = game.score;
+                // Saved to flash only if it beats the stored best.
+                new_best = save_submit_score(SAVE_SPACE_SHOOTER,
+                                             game.score);
+                game.best_score = save_get_best(SAVE_SPACE_SHOOTER);
 
                 // Big explosion where the ship was.
                 spawn_explosion(game.player.x, game.player.y, 40,
