@@ -119,7 +119,7 @@ void buttons_poll(void)
 
 bool button_down(Button button)
 {
-    if (button < 0 || button >= BTN_COUNT)
+    if ((unsigned)button >= BTN_COUNT)
         return false;
 
     return stable_down[button];
@@ -127,7 +127,7 @@ bool button_down(Button button)
 
 bool button_just_pressed(Button button)
 {
-    if (button < 0 || button >= BTN_COUNT)
+    if ((unsigned)button >= BTN_COUNT)
         return false;
 
     return frame_pressed[button];

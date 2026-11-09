@@ -1,3 +1,12 @@
+// ==========================================
+// SPACE SHOOTER
+// ==========================================
+//
+// Physics-based ship (acceleration + friction) that shoots falling
+// asteroids. Orbs give shield charges. Screens: title -> playing
+// <-> paused -> game over. All rendering goes into the framebuffer
+// and is shown once per frame with display_show().
+
 #include "space_shooter.h"
 
 #include "pico/stdlib.h"
@@ -11,13 +20,22 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdbool.h>
 #include <math.h>
 #include <stdint.h>
 
 // ==========================================
 // GAME CONSTANTS
 // ==========================================
+
+#define MAX_BULLETS              12
+#define MAX_ASTEROIDS            10
+
+#define PLAYER_SIZE              12
+#define INITIAL_LIVES            3
+
+#define MAX_SHIELD_CHARGES       3
+#define SHIELD_DURATION_MS       3000
 
 #define PLAYER_ACCEL             550.0f
 #define PLAYER_MAX_SPEED         180.0f
@@ -49,7 +67,7 @@
 
 #define PI_F                     3.14159265f
 
-// Pressing D on the title or game-over screen returns to the menu.
+// D returns to the menu from the title, pause and game-over screens.
 #define BUTTON_MENU              BTN_D
 
 #define COL_SHIP_HULL    RGB565(210, 220, 235)
@@ -66,6 +84,66 @@
 // ==========================================
 // GAME STATE
 // ==========================================
+
+typedef struct
+{
+    float x;
+    float y;
+    float vx;
+    float vy;
+} Player;
+
+typedef struct
+{
+    float x;
+    float y;
+    float speed;
+    int radius;
+    bool active;
+
+    // Visual-only fields: rotation and a jagged outline shape.
+    float angle;
+    float spin;
+    int8_t shape[8];
+} Asteroid;
+
+typedef struct
+{
+    float x;
+    float y;
+    float vx;
+    float vy;
+    bool active;
+} Bullet;
+
+typedef struct
+{
+    Player player;
+
+    Asteroid asteroids[MAX_ASTEROIDS];
+    Bullet bullets[MAX_BULLETS];
+
+    int lives;
+    int game_over;
+
+    uint32_t score;
+    uint32_t best_score;
+
+    // Per-direction fire cooldown: 0 = up, 1 = right, 2 = down, 3 = left.
+    uint32_t last_shot_time[4];
+    uint32_t last_spawn_time;
+    uint32_t last_collision_time;
+
+    int shield_charges;
+    bool shield_active;
+    uint32_t shield_end_time;
+
+    // Shield orb ("food") pickup.
+    float food_x;
+    float food_y;
+    bool food_active;
+    uint32_t last_food_spawn_time;
+} SpaceShooter;
 
 static SpaceShooter game;
 
@@ -377,7 +455,7 @@ static void draw_popups(void)
 // INITIALIZATION
 // ==========================================
 
-void space_shooter_init(void)
+static void space_shooter_init(void)
 {
     game.player.x = SCREEN_WIDTH / 2;
     game.player.y = SCREEN_HEIGHT - 45;

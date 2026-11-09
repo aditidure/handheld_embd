@@ -1,3 +1,11 @@
+// ==========================================
+// ST7789 DISPLAY DRIVER (SPI + DMA, framebuffer)
+// ==========================================
+//
+// All drawing goes into a RAM framebuffer (RGB565). display_show()
+// sends the whole frame to the panel with DMA. In dual-core mode
+// core 1 does the transfer while core 0 draws the next frame into a
+// second buffer. Frame timing statistics (FPS) are measured here.
 
 #include "display.h"
 
@@ -11,7 +19,9 @@
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
 
-// SPI configuration
+// SPI configuration. 80 MHz is requested; the hardware picks the
+// nearest achievable rate from the peripheral clock, which is lower
+// (a full frame measures ~19.5 ms, i.e. roughly 63 MHz).
 #define SPI_PORT spi0
 #define SPI_BAUDRATE 80000000
 

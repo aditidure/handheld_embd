@@ -1,3 +1,11 @@
+// ==========================================
+// ANALOG JOYSTICK (ADC on GP26 / GP27)
+// ==========================================
+//
+// Reads both axes with the RP2350 ADC and converts them to the range
+// -1.0 .. +1.0 using calibrated min / centre / max values, with a
+// dead zone around the centre to ignore jitter.
+
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "joystick.h"

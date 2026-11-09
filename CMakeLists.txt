@@ -48,7 +48,6 @@ add_executable(handheld
 
     display/display.c
 
-    game/physics.c
     game/score.c
 
     sound/sound.c

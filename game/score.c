@@ -1,3 +1,10 @@
+// ==========================================
+// SCORE TRACKING (current + best)
+// ==========================================
+//
+// Small helper used by Snake. Persistent storage of best scores is
+// handled separately by save/save.c.
+
 #include "score.h"
 
 void score_init(Score *score)

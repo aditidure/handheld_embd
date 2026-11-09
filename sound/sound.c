@@ -10,15 +10,9 @@
 // The sound engine runs every millisecond from a timer interrupt.
 #define TICK_US          1000
 
-// Duty cycle divisors: music is played softer than sound effects
-// so effects stand out (1/8 duty vs 1/2 duty).
-#define MUSIC_DUTY_DIV   8
-#define SFX_DUTY_DIV     2
-
-// Fraction of each music note that is actually sounded. The short
-// gap at the end separates repeated notes (staccato feel).
-#define NOTE_GATE_NUM    7
-#define NOTE_GATE_DEN    8
+// PWM duty cycle = top / DUTY_DIV. 2 means 50%, the loudest setting
+// for a buzzer.
+#define DUTY_DIV         2
 
 #define MIN_FREQ         20
 #define MAX_FREQ         8000
@@ -27,15 +21,8 @@ static uint slice_num;
 static uint32_t sys_clock_hz;
 static repeating_timer_t tick_timer;
 
-// What the PWM is currently outputting.
+// Frequency the PWM is currently outputting (0 = silent).
 static uint16_t out_freq = 0;
-static uint8_t out_duty_div = 0;
-
-// Music state.
-static const Song *volatile music_song = NULL;
-static volatile bool music_playing = false;
-static uint16_t music_index = 0;
-static uint32_t music_elapsed = 0;
 
 // Sound effect state.
 static const SoundEffect *volatile sfx_current = NULL;
@@ -54,7 +41,7 @@ static uint16_t lfsr = 0xACE1u;
 // PWM OUTPUT
 // ==========================================
 
-static void output(uint16_t freq, uint8_t duty_div)
+static void output(uint16_t freq)
 {
     if (freq == 0)
     {
@@ -71,7 +58,7 @@ static void output(uint16_t freq, uint8_t duty_div)
     if (freq > MAX_FREQ)
         freq = MAX_FREQ;
 
-    if (freq == out_freq && duty_div == out_duty_div)
+    if (freq == out_freq)
         return;
 
     // Choose the smallest clock divider that keeps the counter
@@ -86,10 +73,9 @@ static void output(uint16_t freq, uint8_t duty_div)
 
     pwm_set_clkdiv(slice_num, (float)div);
     pwm_set_wrap(slice_num, (uint16_t)top);
-    pwm_set_gpio_level(SOUND_PIN, (uint16_t)(top / duty_div));
+    pwm_set_gpio_level(SOUND_PIN, (uint16_t)(top / DUTY_DIV));
 
     out_freq = freq;
-    out_duty_div = duty_div;
 }
 
 static uint16_t next_random(void)
@@ -106,37 +92,8 @@ static uint16_t next_random(void)
 // TIMER TICK (runs every millisecond)
 // ==========================================
 
-static uint16_t tick_music(void)
-{
-    if (!music_playing)
-        return 0;
-
-    const Song *song = music_song;
-    const MusicNote *note = &song->notes[music_index];
-
-    uint32_t length = (uint32_t)note->units * song->unit_ms;
-    uint32_t gate = length * NOTE_GATE_NUM / NOTE_GATE_DEN;
-
-    uint16_t freq = (music_elapsed < gate) ? note->freq : 0;
-
-    music_elapsed += TICK_US / 1000;
-
-    if (music_elapsed >= length)
-    {
-        music_elapsed = 0;
-        music_index++;
-
-        if (music_index >= song->length)
-        {
-            music_index = 0;
-            if (!song->loop)
-                music_playing = false;
-        }
-    }
-
-    return freq;
-}
-
+// Advance the current effect by 1 ms. Returns false if none is
+// playing, otherwise writes the frequency to output.
 static bool tick_sfx(uint16_t *freq_out)
 {
     if (!sfx_playing)
@@ -176,24 +133,21 @@ static bool on_tick(repeating_timer_t *timer)
 {
     (void)timer;
 
-    // Music always advances so it stays in time while muted.
-    uint16_t music_freq = tick_music();
-
     uint16_t sfx_freq = 0;
     bool sfx_active = tick_sfx(&sfx_freq);
 
     if (tone_remaining > 0)
     {
-        output(tone_freq, SFX_DUTY_DIV);
+        output(tone_freq);
         tone_remaining--;
     }
     else if (sfx_active)
     {
-        output(sfx_freq, SFX_DUTY_DIV);
+        output(sfx_freq);
     }
     else
     {
-        output(music_freq, MUSIC_DUTY_DIV);
+        output(0);
     }
 
     return true;
@@ -217,35 +171,6 @@ void sound_init(void)
 
     // Negative interval = fixed rate between callback starts.
     add_repeating_timer_us(-TICK_US, on_tick, NULL, &tick_timer);
-}
-
-void sound_music_play(const Song *song)
-{
-    if (song == NULL || song->length == 0)
-        return;
-
-    if (music_playing && music_song == song)
-        return;
-
-    uint32_t irq = save_and_disable_interrupts();
-    music_song = song;
-    music_index = 0;
-    music_elapsed = 0;
-    music_playing = true;
-    restore_interrupts(irq);
-}
-
-void sound_music_stop(void)
-{
-    uint32_t irq = save_and_disable_interrupts();
-    music_playing = false;
-    music_song = NULL;
-    restore_interrupts(irq);
-}
-
-bool sound_music_is_playing(void)
-{
-    return music_playing;
 }
 
 void sound_sfx_play(const SoundEffect *effect)
@@ -279,8 +204,6 @@ void sound_play_tone(uint16_t frequency, uint32_t duration_ms)
 void sound_stop(void)
 {
     uint32_t irq = save_and_disable_interrupts();
-    music_playing = false;
-    music_song = NULL;
     sfx_playing = false;
     tone_remaining = 0;
     restore_interrupts(irq);

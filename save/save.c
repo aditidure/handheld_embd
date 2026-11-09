@@ -13,7 +13,7 @@
 
 // Last sector of flash, far away from the program image.
 #define SAVE_SECTOR_OFFSET  (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
-#define PAGES_PER_SECTOR    (FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE)
+#define PAGES_PER_SECTOR    ((int)(FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE))
 
 #define SAVE_MAGIC          0x48485343u   // "HHSC"
 #define SAVE_VERSION        1u
@@ -83,7 +83,7 @@ static bool page_erased(int page)
 {
     const uint8_t *p = page_address(page);
 
-    for (int i = 0; i < FLASH_PAGE_SIZE; i++)
+    for (int i = 0; i < (int)FLASH_PAGE_SIZE; i++)
     {
         if (p[i] != 0xFF)
             return false;
@@ -174,7 +174,7 @@ void save_init(void)
 
 uint32_t save_get_best(SaveSlot slot)
 {
-    if (slot < 0 || slot >= SAVE_SLOT_COUNT)
+    if ((unsigned)slot >= SAVE_SLOT_COUNT)
         return 0;
 
     return current.scores[slot];
@@ -182,7 +182,7 @@ uint32_t save_get_best(SaveSlot slot)
 
 bool save_submit_score(SaveSlot slot, uint32_t score)
 {
-    if (slot < 0 || slot >= SAVE_SLOT_COUNT)
+    if ((unsigned)slot >= SAVE_SLOT_COUNT)
         return false;
 
     if (score <= current.scores[slot])

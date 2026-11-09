@@ -1,3 +1,12 @@
+// ==========================================
+// GAME-SELECT MENU
+// ==========================================
+//
+// Shows one card per game (icon, name, best score). Joystick or
+// B / D chooses, a short click plays, holding click sleeps.
+// C toggles the FPS counter; holding A resets the best scores.
+// New games are added to the games[] table below.
+
 #include "menu.h"
 
 #include "pico/stdlib.h"

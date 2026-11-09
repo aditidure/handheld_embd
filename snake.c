@@ -1,3 +1,11 @@
+// ==========================================
+// SNAKE
+// ==========================================
+//
+// Classic grid snake on a 32 x 21 board. Steer with the joystick or
+// A/B/C/D; each apple adds 10 points and speeds the snake up.
+// Joystick click pauses. Best score is saved in flash.
+
 #include "snake.h"
 
 #include "pico/stdlib.h"
