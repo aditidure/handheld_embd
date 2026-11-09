@@ -47,19 +47,7 @@
 // MUSIC AND SOUND EFFECTS (original)
 // ==========================================
 
-static const MusicNote menu_notes[] = {
-    {NOTE_E5, 2}, {NOTE_G5, 2}, {NOTE_C6, 2}, {NOTE_G5, 2},
-    {NOTE_D5, 2}, {NOTE_G5, 2}, {NOTE_B5, 2}, {NOTE_G5, 2},
-    {NOTE_C5, 2}, {NOTE_E5, 2}, {NOTE_A5, 2}, {NOTE_E5, 2},
-    {NOTE_D5, 2}, {NOTE_FS5, 2}, {NOTE_A5, 2}, {NOTE_FS5, 2},
-    {NOTE_E5, 2}, {NOTE_G5, 2}, {NOTE_C6, 2}, {NOTE_E6, 2},
-    {NOTE_D6, 2}, {NOTE_B5, 2}, {NOTE_G5, 2}, {NOTE_B5, 2},
-    {NOTE_C6, 4}, {NOTE_A5, 2}, {NOTE_E5, 2},
-    {NOTE_D5, 4}, {REST, 4},
-};
-
-static const Song SONG_MENU = SONG(menu_notes, 160, true);
-
+// No background music in the menu: only short effects.
 static const SfxSegment move_segs[] = {
     {1300, 1300, 25, false},
 };
@@ -238,8 +226,6 @@ void menu_run(void)
 
     while (true)
     {
-        sound_music_play(&SONG_MENU);
-
         // Read current button states so a button still held from
         // the game we just left doesn't trigger anything.
         bool click_was = button_pressed(BUTTON_CLICK);
@@ -297,7 +283,6 @@ void menu_run(void)
             sleep_ms(FRAME_MS);
         }
 
-        sound_music_stop();
         sound_sfx_play(&SFX_SELECT);
 
         // Runs until the player chooses "menu" inside the game.

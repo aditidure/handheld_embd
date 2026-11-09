@@ -49,35 +49,9 @@
 #define COL_LEAF             RGB565(60, 200, 60)
 
 // ==========================================
-// MUSIC AND SOUND EFFECTS (original)
+// SOUND EFFECTS
+// No music or jingles: sounds only play in response to actions.
 // ==========================================
-
-// Bouncy C-major loop.
-static const MusicNote snake_notes[] = {
-    {NOTE_C5, 1}, {NOTE_E5, 1}, {NOTE_G5, 1}, {NOTE_E5, 1},
-    {NOTE_C5, 1}, {NOTE_E5, 1}, {NOTE_G5, 2},
-    {NOTE_F5, 1}, {NOTE_A5, 1}, {NOTE_C6, 1}, {NOTE_A5, 1},
-    {NOTE_F5, 1}, {NOTE_A5, 1}, {NOTE_C6, 2},
-    {NOTE_G5, 1}, {NOTE_B5, 1}, {NOTE_D6, 1}, {NOTE_B5, 1},
-    {NOTE_G5, 1}, {NOTE_F5, 1}, {NOTE_E5, 1}, {NOTE_D5, 1},
-    {NOTE_E5, 2}, {NOTE_C5, 2}, {NOTE_G4, 2}, {REST, 2},
-
-    {NOTE_A4, 1}, {NOTE_C5, 1}, {NOTE_E5, 1}, {NOTE_C5, 1},
-    {NOTE_A4, 1}, {NOTE_C5, 1}, {NOTE_E5, 2},
-    {NOTE_F4, 1}, {NOTE_A4, 1}, {NOTE_C5, 1}, {NOTE_A4, 1},
-    {NOTE_F4, 1}, {NOTE_A4, 1}, {NOTE_C5, 2},
-    {NOTE_G4, 1}, {NOTE_B4, 1}, {NOTE_D5, 1}, {NOTE_F5, 1},
-    {NOTE_E5, 1}, {NOTE_D5, 1}, {NOTE_C5, 1}, {NOTE_B4, 1},
-    {NOTE_C5, 4}, {REST, 4},
-};
-
-static const MusicNote snake_over_notes[] = {
-    {REST, 3},
-    {NOTE_E5, 2}, {NOTE_C5, 2}, {NOTE_A4, 2}, {NOTE_G4, 6},
-};
-
-static const Song SONG_SNAKE = SONG(snake_notes, 140, true);
-static const Song SONG_SNAKE_OVER = SONG(snake_over_notes, 150, false);
 
 static const SfxSegment eat_segs[] = {
     {NOTE_C6, NOTE_C6, 40, false},
@@ -236,7 +210,6 @@ static void game_over(uint32_t now)
     state_time = now;
 
     sound_sfx_play(&SFX_CRASH);
-    sound_music_play(&SONG_SNAKE_OVER);
 }
 
 static void step(uint32_t now)
@@ -467,7 +440,6 @@ void snake_game_run(void)
     uint32_t last_move = now;
 
     reset_game(now);
-    sound_music_play(&SONG_SNAKE);
 
     bool click_was_pressed = button_pressed(BUTTON_CLICK);
     bool menu_was_pressed = button_pressed(BUTTON_D);
@@ -508,10 +480,6 @@ void snake_game_run(void)
         {
             bool ready = now - state_time > RESTART_DELAY_MS;
 
-            // After the game-over jingle, bring the main tune back.
-            if (!sound_music_is_playing())
-                sound_music_play(&SONG_SNAKE);
-
             if (menu_edge && ready)
             {
                 sound_stop();
@@ -521,7 +489,6 @@ void snake_game_run(void)
             if (click_edge && ready)
             {
                 reset_game(now);
-                sound_music_play(&SONG_SNAKE);
             }
         }
 

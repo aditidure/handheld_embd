@@ -110,71 +110,8 @@ typedef struct
 } Popup;
 
 // ==========================================
-// MUSIC (original compositions)
-// ==========================================
-
-// Title theme: A minor, calm and heroic. 8-bar loop.
-static const MusicNote title_notes[] = {
-    {NOTE_A4, 2}, {NOTE_C5, 2}, {NOTE_E5, 2}, {NOTE_A5, 2},
-    {NOTE_G5, 3}, {NOTE_E5, 1}, {NOTE_D5, 2}, {NOTE_C5, 2},
-    {NOTE_F5, 2}, {NOTE_A5, 2}, {NOTE_G5, 2}, {NOTE_F5, 2},
-    {NOTE_E5, 6}, {REST, 2},
-
-    {NOTE_A4, 2}, {NOTE_C5, 2}, {NOTE_E5, 2}, {NOTE_A5, 2},
-    {NOTE_B5, 3}, {NOTE_A5, 1}, {NOTE_G5, 2}, {NOTE_E5, 2},
-    {NOTE_F5, 2}, {NOTE_E5, 2}, {NOTE_D5, 2}, {NOTE_B4, 2},
-    {NOTE_A4, 6}, {REST, 2},
-};
-
-// Gameplay theme: E minor, driving arpeggios then a lead melody.
-static const MusicNote game_notes[] = {
-    // Arpeggios: Em, C, D, B.
-    {NOTE_E4, 1}, {NOTE_B4, 1}, {NOTE_E5, 1}, {NOTE_B4, 1},
-    {NOTE_G5, 1}, {NOTE_B4, 1}, {NOTE_E5, 1}, {NOTE_B4, 1},
-    {NOTE_C4, 1}, {NOTE_G4, 1}, {NOTE_C5, 1}, {NOTE_G4, 1},
-    {NOTE_E5, 1}, {NOTE_G4, 1}, {NOTE_C5, 1}, {NOTE_G4, 1},
-    {NOTE_D4, 1}, {NOTE_A4, 1}, {NOTE_D5, 1}, {NOTE_A4, 1},
-    {NOTE_FS5, 1}, {NOTE_A4, 1}, {NOTE_D5, 1}, {NOTE_A4, 1},
-    {NOTE_B4, 1}, {NOTE_FS5, 1}, {NOTE_B5, 1}, {NOTE_FS5, 1},
-    {NOTE_DS6, 1}, {NOTE_B5, 1}, {NOTE_A5, 1}, {NOTE_FS5, 1},
-
-    // Melody, first phrase.
-    {NOTE_E5, 2}, {NOTE_G5, 2}, {NOTE_A5, 1}, {NOTE_B5, 1}, {NOTE_A5, 2},
-    {NOTE_G5, 2}, {NOTE_FS5, 2}, {NOTE_E5, 2}, {NOTE_D5, 2},
-    {NOTE_E5, 2}, {NOTE_G5, 2}, {NOTE_A5, 1}, {NOTE_B5, 1}, {NOTE_D6, 2},
-    {NOTE_B5, 4}, {REST, 2}, {NOTE_B4, 1}, {NOTE_DS5, 1},
-
-    // Arpeggios again.
-    {NOTE_E4, 1}, {NOTE_B4, 1}, {NOTE_E5, 1}, {NOTE_B4, 1},
-    {NOTE_G5, 1}, {NOTE_B4, 1}, {NOTE_E5, 1}, {NOTE_B4, 1},
-    {NOTE_C4, 1}, {NOTE_G4, 1}, {NOTE_C5, 1}, {NOTE_G4, 1},
-    {NOTE_E5, 1}, {NOTE_G4, 1}, {NOTE_C5, 1}, {NOTE_G4, 1},
-    {NOTE_D4, 1}, {NOTE_A4, 1}, {NOTE_D5, 1}, {NOTE_A4, 1},
-    {NOTE_FS5, 1}, {NOTE_A4, 1}, {NOTE_D5, 1}, {NOTE_A4, 1},
-    {NOTE_B4, 1}, {NOTE_FS5, 1}, {NOTE_B5, 1}, {NOTE_FS5, 1},
-    {NOTE_DS6, 1}, {NOTE_B5, 1}, {NOTE_A5, 1}, {NOTE_FS5, 1},
-
-    // Melody, answering phrase (climbs higher, resolves to E).
-    {NOTE_E5, 2}, {NOTE_G5, 2}, {NOTE_A5, 1}, {NOTE_B5, 1}, {NOTE_A5, 2},
-    {NOTE_G5, 2}, {NOTE_A5, 2}, {NOTE_B5, 2}, {NOTE_D6, 2},
-    {NOTE_E6, 3}, {NOTE_D6, 1}, {NOTE_B5, 2}, {NOTE_G5, 2},
-    {NOTE_E5, 4}, {REST, 2}, {NOTE_DS5, 1}, {NOTE_FS5, 1},
-};
-
-// Game over: short descending "sad" jingle, plays once.
-// Starts with a rest so the crash sound effect is heard first.
-static const MusicNote game_over_notes[] = {
-    {REST, 3},
-    {NOTE_G5, 2}, {NOTE_DS5, 2}, {NOTE_C5, 2},
-    {NOTE_B4, 1}, {NOTE_AS4, 1}, {NOTE_A4, 6},
-};
-
-static const Song SONG_TITLE = SONG(title_notes, 170, true);
-static const Song SONG_GAME = SONG(game_notes, 130, true);
-static const Song SONG_GAME_OVER = SONG(game_over_notes, 150, false);
-
-// ==========================================
 // SOUND EFFECTS
+// No music or jingles: sounds only play in response to actions.
 // ==========================================
 
 static const SfxSegment shoot_segs[] = {
@@ -205,28 +142,12 @@ static const SfxSegment shield_block_segs[] = {
     {1400, 1400, 50, false},            // metallic "ting"
 };
 
-static const SfxSegment level_up_segs[] = {
-    {NOTE_C6, NOTE_C6, 70, false},
-    {NOTE_E6, NOTE_E6, 70, false},
-    {NOTE_G6, NOTE_G6, 70, false},
-    {2093, 2093, 150, false},           // C7
-};
-
-static const SfxSegment start_segs[] = {
-    {NOTE_G5, NOTE_G5, 80, false},
-    {0, 0, 20, false},
-    {NOTE_C6, NOTE_C6, 80, false},
-    {NOTE_G6, NOTE_G6, 160, false},
-};
-
 static const SoundEffect SFX_SHOOT = SOUND_EFFECT(shoot_segs, 1);
 static const SoundEffect SFX_EXPLODE = SOUND_EFFECT(explode_segs, 2);
 static const SoundEffect SFX_SHIELD_BLOCK = SOUND_EFFECT(shield_block_segs, 2);
 static const SoundEffect SFX_PICKUP = SOUND_EFFECT(pickup_segs, 3);
 static const SoundEffect SFX_SHIELD_ON = SOUND_EFFECT(shield_on_segs, 3);
-static const SoundEffect SFX_LEVEL_UP = SOUND_EFFECT(level_up_segs, 3);
 static const SoundEffect SFX_HIT = SOUND_EFFECT(hit_segs, 4);
-static const SoundEffect SFX_START = SOUND_EFFECT(start_segs, 5);
 
 static ScreenState screen_state = STATE_TITLE;
 
@@ -1213,8 +1134,7 @@ static void start_game(uint32_t now)
     level_banner_until = now + LEVEL_BANNER_MS;
     screen_state = STATE_PLAYING;
 
-    sound_music_play(&SONG_GAME);
-    sound_sfx_play(&SFX_START);
+    sound_stop();
 }
 
 static void update_level(uint32_t now)
@@ -1225,7 +1145,6 @@ static void update_level(uint32_t now)
     {
         current_level = level;
         level_banner_until = now + LEVEL_BANNER_MS;
-        sound_sfx_play(&SFX_LEVEL_UP);
     }
 }
 
@@ -1248,8 +1167,6 @@ void space_shooter_run(void)
 
     bool click_was_pressed = button_pressed(BUTTON_CLICK);
     bool menu_was_pressed = button_pressed(BUTTON_MENU);
-
-    sound_music_play(&SONG_TITLE);
 
     while (true)
     {
@@ -1289,11 +1206,6 @@ void space_shooter_run(void)
         else if (screen_state == STATE_GAME_OVER)
         {
             draw_game_over(now);
-
-            // Once the game-over jingle has finished, bring back
-            // the title theme while waiting for a restart.
-            if (!sound_music_is_playing())
-                sound_music_play(&SONG_TITLE);
 
             bool ready = now - game_over_time > RESTART_DELAY_MS;
 
@@ -1336,8 +1248,6 @@ void space_shooter_run(void)
 
                 game_over_time = now;
                 screen_state = STATE_GAME_OVER;
-
-                sound_music_play(&SONG_GAME_OVER);
                 continue;
             }
 
