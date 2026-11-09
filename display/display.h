@@ -2,6 +2,7 @@
 #define DISPLAY_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // Orientation is chosen per program. Define DISPLAY_LANDSCAPE
 // (e.g. with target_compile_definitions in CMakeLists.txt) to get
@@ -50,4 +51,28 @@ void display_draw_string(int x, int y, const char *text,
 
 void display_draw_number(int x, int y, int number,
                          uint16_t color, int scale);
+
+// --------------------------------------------------
+// Performance measurement
+// --------------------------------------------------
+// display_show() times every frame. Stats are averaged over
+// one-second windows.
+
+typedef struct
+{
+    float fps;              // frames shown per second
+    float frame_ms;         // average time between frames
+    float worst_frame_ms;   // slowest frame in the window
+    float transfer_ms;      // average DMA transfer time to the panel
+} DisplayStats;
+
+// Latest one-second stats (all zero until the first second passes).
+DisplayStats display_get_stats(void);
+
+// Small "FPS nn" box drawn in the bottom-left corner of every frame.
+void display_set_fps_overlay(bool enabled);
+bool display_get_fps_overlay(void);
+
+// Print the stats over USB serial once per second.
+void display_set_fps_logging(bool enabled);
 #endif

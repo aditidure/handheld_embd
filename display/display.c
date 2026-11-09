@@ -314,11 +314,105 @@ void display_fill_rect(int x, int y,
 
 
 // --------------------------------------------------
-// DISPLAY FRAMEBUFFER USING DMA
+// PERFORMANCE STATS
+// --------------------------------------------------
+
+#define STATS_WINDOW_US  1000000u
+
+static DisplayStats stats;
+static bool fps_overlay = false;
+static bool fps_logging = false;
+
+static uint32_t window_start_us = 0;
+static uint32_t window_frames = 0;
+static uint64_t window_transfer_us = 0;
+static uint32_t window_worst_us = 0;
+static uint32_t last_frame_end_us = 0;
+
+static void draw_fps_overlay(void)
+{
+    char text[12];
+    snprintf(text, sizeof(text), "FPS %d", (int)(stats.fps + 0.5f));
+
+    int width = (int)strlen(text) * 6 + 3;
+    int y = SCREEN_HEIGHT - 11;
+
+    display_fill_rect(0, y, width, 11, BLACK);
+    display_draw_string(2, y + 2, text, YELLOW, 1);
+}
+
+static void update_stats(uint32_t transfer_start_us, uint32_t frame_end_us)
+{
+    if (last_frame_end_us != 0)
+    {
+        uint32_t frame_us = frame_end_us - last_frame_end_us;
+        if (frame_us > window_worst_us)
+            window_worst_us = frame_us;
+    }
+    last_frame_end_us = frame_end_us;
+
+    if (window_start_us == 0)
+        window_start_us = frame_end_us;
+
+    window_frames++;
+    window_transfer_us += frame_end_us - transfer_start_us;
+
+    uint32_t elapsed = frame_end_us - window_start_us;
+    if (elapsed < STATS_WINDOW_US)
+        return;
+
+    stats.fps = (float)window_frames * 1000000.0f / (float)elapsed;
+    stats.frame_ms = (float)elapsed / 1000.0f / (float)window_frames;
+    stats.worst_frame_ms = (float)window_worst_us / 1000.0f;
+    stats.transfer_ms = (float)window_transfer_us / 1000.0f /
+                        (float)window_frames;
+
+    if (fps_logging)
+    {
+        printf("FPS %.1f | frame avg %.1f ms, worst %.1f ms | "
+               "DMA transfer %.1f ms\n",
+               stats.fps, stats.frame_ms, stats.worst_frame_ms,
+               stats.transfer_ms);
+    }
+
+    window_start_us = frame_end_us;
+    window_frames = 0;
+    window_transfer_us = 0;
+    window_worst_us = 0;
+}
+
+DisplayStats display_get_stats(void)
+{
+    return stats;
+}
+
+void display_set_fps_overlay(bool enabled)
+{
+    fps_overlay = enabled;
+}
+
+bool display_get_fps_overlay(void)
+{
+    return fps_overlay;
+}
+
+void display_set_fps_logging(bool enabled)
+{
+    fps_logging = enabled;
+}
+
+
+// --------------------------------------------------
+// DISPLAY FRAMEBUFFER USING DMA (timed)
 // --------------------------------------------------
 
 void display_show(void)
 {
+    if (fps_overlay)
+        draw_fps_overlay();
+
+    uint32_t transfer_start_us = time_us_32();
+
     set_address_window(0, 0,
                        SCREEN_WIDTH - 1,
                        SCREEN_HEIGHT - 1);
@@ -360,6 +454,8 @@ void display_show(void)
     }
 
     gpio_put(PIN_CS, 1);
+
+    update_stats(transfer_start_us, time_us_32());
 }
 
 

@@ -24,6 +24,10 @@ int main(void)
 
     sound_init();
 
+    // Print FPS / frame-time stats over USB serial every second
+
+    display_set_fps_logging(true);
+
     // Load best scores saved in flash
 
     save_init();

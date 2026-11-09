@@ -33,8 +33,8 @@
 
 #define NUM_STARS        40
 
-// Hold A + C together this long to reset all best scores.
-#define RESET_HOLD_MS    2000
+// Hold A this long to reset all best scores. C toggles the FPS box.
+#define RESET_HOLD_MS    3000
 #define RESET_MSG_MS     1500
 
 #define COL_CARD_BG      RGB565(8, 10, 24)
@@ -216,7 +216,8 @@ static void draw_menu(int selected, uint32_t now)
     if ((now / 500) % 2 == 0)
         ui_text_centered(192, "CLICK TO PLAY", WHITE, 2);
 
-    ui_text_centered(222, footer_text, COL_LABEL, 1);
+    ui_text_centered(212, footer_text, COL_LABEL, 1);
+    ui_text_centered(226, "C: FPS    HOLD A: RESET SCORES", COL_DIM, 1);
 
     display_show();
 }
@@ -279,8 +280,15 @@ void menu_run(void)
             if (button_just_pressed(BTN_CLICK))
                 launch = true;
 
-            // Hidden option: hold A + C for 2 s to reset best scores.
-            if (button_down(BTN_A) && button_down(BTN_C))
+            // C: show / hide the FPS counter (stays on in games).
+            if (button_just_pressed(BTN_C))
+            {
+                display_set_fps_overlay(!display_get_fps_overlay());
+                sound_sfx_play(&SFX_MOVE);
+            }
+
+            // Hold A for 3 s to reset best scores.
+            if (button_down(BTN_A))
             {
                 if (reset_hold_start == 0)
                     reset_hold_start = now ? now : 1;
