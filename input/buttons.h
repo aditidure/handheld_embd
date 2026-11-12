@@ -59,8 +59,4 @@ bool buttons_any_down(void);
 // button. Used to detect inactivity for auto-sleep.
 uint32_t buttons_last_press_ms(void);
 
-// Raw, NOT debounced pin read. Kept for the hardware test programs.
-// Returns 1 if the button on `gpio` is pressed, 0 otherwise.
-int button_pressed(uint gpio);
-
 #endif // BUTTONS_H

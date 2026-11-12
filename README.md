@@ -1,6 +1,6 @@
 # Pico Handheld Game Console
 
-A self-contained, USB-powered handheld game console built on the **Raspberry Pi Pico 2 (RP2350)** with a 320×240 SPI colour display, an analog joystick, buttons and a piezo buzzer. It boots into a game-select menu with two games, **Space Shooter** and **Snake**.
+A self-contained, USB-powered handheld game console built on the **Raspberry Pi Pico 2 (RP2350)** with a 320×240 SPI colour display, an analog joystick, buttons, and sound through a PAM class-D amplifier and speaker. It boots into a game-select menu with two games, **Space Shooter** and **Snake**.
 
 <!-- Add a photo of the device here: ![Handheld](docs/photo.jpg) -->
 
@@ -44,7 +44,8 @@ A self-contained, USB-powered handheld game console built on the **Raspberry Pi 
 | Raspberry Pi Pico 2 (RP2350) | 520 KB SRAM, 4 MB flash |
 | ST7789 SPI display, 320×240 | Used in landscape |
 | Joystick shield | Analog stick with push switch + buttons A–D |
-| Piezo buzzer | Driven directly by PWM |
+| PAM class-D amplifier module | Amplifies the PWM audio signal; powered from USB 5 V |
+| Speaker (4–8 Ω) | Driven by the amplifier's bridged output |
 | USB cable | Power and serial output |
 
 ### Pin connections
@@ -64,7 +65,8 @@ A self-contained, USB-powered handheld game console built on the **Raspberry Pi 
 | GP8 | Joystick click | Active-low, internal pull-up |
 | GP26 (ADC0) | Joystick X | |
 | GP27 (ADC1) | Joystick Y | |
-| GP15 | Buzzer + | PWM slice 7 B; buzzer − to GND |
+| GP15 | Amplifier audio input | PWM slice 7 B; amplifier input ground to Pico GND |
+| VBUS (5 V) / GND | Amplifier VCC / GND | Speaker on amplifier OUT+ / OUT− (never OUT− to GND) |
 
 <!-- Add the schematic here: ![Schematic](docs/schematic.png) -->
 
@@ -89,21 +91,24 @@ core 1:                         [DMA buf A → display ] [DMA buf B → display 
 
 ### Project structure
 
-```
-handheld.c           Entry point: hardware init, load scores, start menu
-menu.c / .h          Game-select menu (cards, FPS toggle, score reset, sleep)
-space_shooter.c / .h Space Shooter game
-snake.c / .h         Snake game
-display/             ST7789 driver: framebuffer, drawing, font, DMA,
-                     dual-core transfer, FPS statistics, panel sleep
-input/               Debounced buttons (timer interrupt), analog joystick
-sound/               Non-blocking PWM sound effects, note frequencies
-save/                Best scores in flash (wear levelling, CRC32)
-power/               Sleep mode (manual and idle timeout)
-ui/                  Shared drawing helpers, colours, pause box
-game/score.c         Current/best score helper
-test/                Stand-alone hardware test programs
-```
+| File | What it does |
+|---|---|
+| `handheld.c` | Entry point: initialises the hardware, loads saved scores, starts the menu |
+| `menu.c/.h` | Game-select menu: game cards, FPS toggle (C), score reset (hold A), sleep (hold click) |
+| `space_shooter.c/.h` | Space Shooter game |
+| `snake.c/.h` | Snake game |
+| `display/display.c/.h` | ST7789 driver: SPI + DMA transfer, framebuffers, dual-core hand-off, drawing primitives, 5×7 font, FPS statistics, panel sleep |
+| `input/buttons.c/.h` | 1 kHz interrupt sampling, 5 ms debounce, press latching, idle tracking |
+| `input/joystick.c/.h` | ADC reading, calibration, dead zone |
+| `sound/sound.c/.h` | Non-blocking PWM sound effects (1 kHz interrupt, pitch slides, noise, priorities) |
+| `sound/notes.h` | Musical note frequencies |
+| `save/save.c/.h` | Best scores in flash: wear levelling over 16 pages, CRC32, safe writes with core 1 running |
+| `power/power.c/.h` | Sleep and wake: display sleep, lower clock, WFI |
+| `ui/ui.c/.h` | Shared drawing helpers (centred text, circles, triangles, panels, pause box) and colour palette |
+| `test/*_test.c` | Stand-alone hardware test programs (see below) |
+| `CMakeLists.txt` | Build file: firmware + test targets, `HANDHELD_DUAL_CORE` option |
+| `pico_sdk_import.cmake` | Standard Pico SDK locator (from the SDK) |
+| `.vscode/` | Settings for the Raspberry Pi Pico VS Code extension |
 
 ### Adding a game
 
@@ -144,8 +149,8 @@ Open the Pico's USB serial port in any terminal (`/dev/ttyACM0` on Linux, a COM 
 | Frame rate (dual-core, menu) | 51.4 FPS |
 | DMA transfer per frame | 19.5 ms (SPI bandwidth is the limit) |
 | Core 0 time per frame (logic + drawing) | 3.0 ms (~15 % load) |
-| Flash used by firmware | 65.3 KB of 4 MB |
-| RAM used | 318 KB of 520 KB (two framebuffers = 300 KB) |
+| Flash used by firmware | 63.7 KB of 4 MB |
+| RAM used | 310 KB of 520 KB (two framebuffers = 300 KB) |
 | Frame rate, single-core | *to be measured* |
 | Current: menu / gameplay / sleep | *to be measured* |
 
@@ -153,11 +158,11 @@ Open the Pico's USB serial port in any terminal (`/dev/ttyACM0` on Linux, a COM 
 
 Each part of the hardware has a small stand-alone test, built alongside the main firmware:
 
-| Target | Tests |
-|---|---|
-| `display_test` | Display, text rendering |
-| `buttons_test` | Buttons |
-| `joystick_test` | Joystick ADC (raw values for calibration) |
-| `sound_test` | Buzzer tones |
-| `physics_test` | Physics module |
-| `snake_test` | Early portrait Snake (buttons + display + sound) |
+| Target | Checks | Output |
+|---|---|---|
+| `display_test` | Wiring, orientation, colours, FPS | Border, colour bars, moving square on screen |
+| `buttons_test` | Debouncing | Serial: state of each button and a press counter (+1 per press) |
+| `joystick_test` | ADC and calibration | Serial: raw 0–4095 values and normalised −1…+1 |
+| `sound_test` | PWM, amplifier, speaker | A C-major scale, then a rising/falling sweep |
+
+Build one with e.g. `cmake --build build --target buttons_test` and flash `build/buttons_test.uf2`.

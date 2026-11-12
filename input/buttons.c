@@ -160,11 +160,3 @@ uint32_t buttons_last_press_ms(void)
 {
     return last_press_ms;
 }
-
-int button_pressed(uint gpio)
-{
-    // Buttons are active-low:
-    // LOW  (0) -> Pressed
-    // HIGH (1) -> Released
-    return (gpio_get(gpio) == 0);
-}

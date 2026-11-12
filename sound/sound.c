@@ -10,8 +10,8 @@
 // The sound engine runs every millisecond from a timer interrupt.
 #define TICK_US          1000
 
-// PWM duty cycle = top / DUTY_DIV. 2 means 50%, the loudest setting
-// for a buzzer.
+// PWM duty cycle = top / DUTY_DIV. 2 means a 50% square wave, which
+// gives the strongest fundamental tone at the amplifier input.
 #define DUTY_DIV         2
 
 #define MIN_FREQ         20

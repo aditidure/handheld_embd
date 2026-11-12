@@ -1,37 +1,46 @@
+// ==========================================
+// BUTTON TEST
+// ==========================================
+//
+// Prints the debounced state of every button over USB serial, plus
+// how many presses have been counted. Each physical press should
+// add exactly 1 to its counter: if a counter jumps by more than 1
+// per press, the button is bouncing through the debounce filter.
+
 #include <stdio.h>
+
 #include "pico/stdlib.h"
 #include "input/buttons.h"
 
-#define BUTTON_A   2
-#define BUTTON_B   3
-#define BUTTON_C   4
-#define BUTTON_D   5
-#define BUTTON_JOY 8
+static const char *const names[BTN_COUNT] = { "A", "B", "C", "D", "CLICK" };
 
 int main(void)
 {
-stdio_init_all();
-sleep_ms(2000);
+    stdio_init_all();
+    sleep_ms(2000);   // time to open the serial monitor
 
-buttons_init();
+    buttons_init();
 
-printf("\n=============================\n");
-printf("        BUTTON TEST\n");
-printf("=============================\n");
+    printf("\n===== BUTTON TEST =====\n");
+    printf("Press each button once; its count should rise by 1.\n\n");
 
-while (true)
-{
-    printf("A: %d | B: %d | C: %d | D: %d | JOY: %d\n",
-           button_pressed(BUTTON_A),
-           button_pressed(BUTTON_B),
-           button_pressed(BUTTON_C),
-           button_pressed(BUTTON_D),
-           button_pressed(BUTTON_JOY));
+    uint32_t press_count[BTN_COUNT] = { 0 };
 
-    sleep_ms(200);
-}
+    while (true)
+    {
+        buttons_poll();
 
-return 0;
+        for (int i = 0; i < BTN_COUNT; i++)
+        {
+            if (button_just_pressed((Button)i))
+                press_count[i]++;
 
+            printf("%s:%s(%lu)  ", names[i],
+                   button_down((Button)i) ? "DOWN" : "up  ",
+                   (unsigned long)press_count[i]);
+        }
+        printf("\n");
 
+        sleep_ms(200);
+    }
 }

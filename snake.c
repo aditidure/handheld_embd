@@ -13,7 +13,6 @@
 #include "input/buttons.h"
 #include "input/joystick.h"
 #include "sound/sound.h"
-#include "game/score.h"
 #include "ui/ui.h"
 #include "save/save.h"
 #include "power/power.h"
@@ -100,7 +99,9 @@ static int dir_x, dir_y;
 static int moved_x, moved_y;
 
 static Cell food;
-static Score score;
+// Current score, and best score (loaded from / saved to flash).
+static uint32_t score;
+static uint32_t best_score;
 static bool new_best = false;
 
 static uint32_t move_interval;
@@ -166,7 +167,7 @@ static void reset_game(uint32_t now)
     dir_x = moved_x = 1;
     dir_y = moved_y = 0;
 
-    score_reset(&score);
+    score = 0;
     new_best = false;
 
     move_interval = START_INTERVAL_MS;
@@ -213,9 +214,8 @@ static void read_direction_input(void)
 static void game_over(uint32_t now)
 {
     // Saved to flash only if it beats the stored best.
-    new_best = save_submit_score(SAVE_SNAKE,
-                                 (uint32_t)score_get_current(&score));
-    score_set_best(&score, (int)save_get_best(SAVE_SNAKE));
+    new_best = save_submit_score(SAVE_SNAKE, score);
+    best_score = save_get_best(SAVE_SNAKE);
 
     state = SNAKE_OVER;
     state_time = now;
@@ -262,7 +262,7 @@ static void step(uint32_t now)
 
     if (eating)
     {
-        score_add(&score, POINTS_PER_APPLE);
+        score += POINTS_PER_APPLE;
         sound_sfx_play(&SFX_EAT);
 
         if (move_interval > MIN_INTERVAL_MS + SPEEDUP_MS)
@@ -360,11 +360,11 @@ static void draw_hud(void)
                       COL_SNAKE_ACCENT);
 
     display_draw_string(6, 3, "SCORE", COL_LABEL, 1);
-    display_draw_number(6, 13, score_get_current(&score), WHITE, 2);
+    display_draw_number(6, 13, (int)score, WHITE, 2);
 
     int best_x = SCREEN_WIDTH / 2 - 20;
     display_draw_string(best_x, 3, "BEST", COL_LABEL, 1);
-    display_draw_number(best_x, 13, score_get_best(&score), YELLOW, 2);
+    display_draw_number(best_x, 13, (int)best_score, YELLOW, 2);
 
     int len_x = SCREEN_WIDTH - 50;
     display_draw_string(len_x, 3, "LENGTH", COL_LABEL, 1);
@@ -396,10 +396,10 @@ static void draw_game_over_panel(uint32_t now)
                       COL_ACCENT_DIM);
 
     ui_text_centered(panel_y + 58, "SCORE", COL_LABEL, 1);
-    ui_number_centered(panel_y + 70, score_get_current(&score), YELLOW, 3);
+    ui_number_centered(panel_y + 70, (int)score, YELLOW, 3);
 
     ui_text_centered(panel_y + 106, "BEST", COL_LABEL, 1);
-    ui_number_centered(panel_y + 118, score_get_best(&score), GREEN, 2);
+    ui_number_centered(panel_y + 118, (int)best_score, GREEN, 2);
 
     if (new_best && ((now / 250) % 2 == 0))
         ui_text_centered(panel_y + 144, "NEW BEST", YELLOW, 2);
@@ -446,8 +446,8 @@ int snake_game_best_score(void)
 void snake_game_run(void)
 {
     // Best score persists in flash across power cycles.
-    score_init(&score);
-    score_set_best(&score, (int)save_get_best(SAVE_SNAKE));
+    score = 0;
+    best_score = save_get_best(SAVE_SNAKE);
 
     uint32_t now = to_ms_since_boot(get_absolute_time());
     uint32_t last_move = now;
@@ -512,8 +512,7 @@ void snake_game_run(void)
             else if (menu_edge)
             {
                 // Quitting still counts the score towards the best.
-                save_submit_score(SAVE_SNAKE,
-                                  (uint32_t)score_get_current(&score));
+                save_submit_score(SAVE_SNAKE, score);
                 sound_stop();
                 return;
             }

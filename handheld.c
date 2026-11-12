@@ -3,8 +3,9 @@
 // ==========================================
 //
 // Raspberry Pi Pico 2 (RP2350) handheld with an ST7789 SPI display,
-// joystick, buttons and a piezo buzzer. main() initialises the
-// hardware, loads the saved best scores and starts the game menu.
+// joystick, buttons, and sound through a PAM amplifier and speaker.
+// main() initialises the hardware, loads the saved best scores and
+// starts the game menu.
 //
 // Core 0 runs the menu and games; core 1 sends finished frames to
 // the display (see display/display.c).

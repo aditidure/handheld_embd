@@ -2,11 +2,11 @@
 #define SOUND_H
 
 // ==========================================
-// SOUND (piezo buzzer on GP15, driven by PWM)
+// SOUND (PWM on GP15 -> PAM class-D amplifier -> speaker)
 // ==========================================
 //
-// A 1 ms timer interrupt drives the buzzer, so sound effects play in
-// the background and never pause the game loop.
+// A 1 ms timer interrupt updates the PWM pitch, so sound effects play
+// in the background and never pause the game loop.
 //
 // A sound effect is a short list of segments. Each segment slides
 // its pitch from freq_start to freq_end over `ms` milliseconds;
