@@ -112,6 +112,15 @@ add_executable(buttons_test  test/buttons_test.c  input/buttons.c)
 add_executable(joystick_test test/joystick_test.c input/joystick.c)
 add_executable(sound_test    test/sound_test.c    sound/sound.c)
 
-foreach(test display_test buttons_test joystick_test sound_test)
+# Measures clocks, SPI speed, ADC/mux timing and drawing costs.
+add_executable(benchmark_test
+    test/benchmark_test.c
+    display/display.c
+    input/joystick.c
+    input/buttons.c
+    ui/ui.c
+)
+
+foreach(test display_test buttons_test joystick_test sound_test benchmark_test)
     handheld_common(${test})
 endforeach()

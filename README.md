@@ -44,8 +44,8 @@ A self-contained, USB-powered handheld game console built on the **Raspberry Pi 
 | Raspberry Pi Pico 2 (RP2350) | 520 KB SRAM, 4 MB flash |
 | ST7789 SPI display, 320×240 | Used in landscape |
 | Joystick shield | Analog stick with push switch + buttons A–D |
-| PAM class-D amplifier module | Amplifies the PWM audio signal; powered from USB 5 V |
-| Speaker (4–8 Ω) | Driven by the amplifier's bridged output |
+| PAM8302 class-D amplifier module | Mono amplifier for the PWM audio signal; powered from the Pico's 3.3 V |
+| Speaker, 8 Ω 0.5 W | Driven by the amplifier's bridged output (keep the amp's volume moderate) |
 | USB cable | Power and serial output |
 
 ### Pin connections
@@ -66,9 +66,7 @@ A self-contained, USB-powered handheld game console built on the **Raspberry Pi 
 | GP26 (ADC0) | Joystick X | |
 | GP27 (ADC1) | Joystick Y | |
 | GP15 | Amplifier audio input | PWM slice 7 B; amplifier input ground to Pico GND |
-| VBUS (5 V) / GND | Amplifier VCC / GND | Speaker on amplifier OUT+ / OUT− (never OUT− to GND) |
-
-<!-- Add the schematic here: ![Schematic](docs/schematic.png) -->
+| 3V3 / GND | Amplifier VCC / GND | Speaker on amplifier OUT+ / OUT− (never OUT− to GND) |
 
 ## Software design
 
@@ -105,7 +103,8 @@ core 1:                         [DMA buf A → display ] [DMA buf B → display 
 | `save/save.c/.h` | Best scores in flash: wear levelling over 16 pages, CRC32, safe writes with core 1 running |
 | `power/power.c/.h` | Sleep and wake: display sleep, lower clock, WFI |
 | `ui/ui.c/.h` | Shared drawing helpers (centred text, circles, triangles, panels, pause box) and colour palette |
-| `test/*_test.c` | Stand-alone hardware test programs (see below) |
+| `test/*_test.c` | Stand-alone hardware test and benchmark programs (see below) |
+| `report/` | Project report (`report.tex`, compiled `report.pdf`) |
 | `CMakeLists.txt` | Build file: firmware + test targets, `HANDHELD_DUAL_CORE` option |
 | `pico_sdk_import.cmake` | Standard Pico SDK locator (from the SDK) |
 | `.vscode/` | Settings for the Raspberry Pi Pico VS Code extension |
@@ -164,5 +163,6 @@ Each part of the hardware has a small stand-alone test, built alongside the main
 | `buttons_test` | Debouncing | Serial: state of each button and a press counter (+1 per press) |
 | `joystick_test` | ADC and calibration | Serial: raw 0–4095 values and normalised −1…+1 |
 | `sound_test` | PWM, amplifier, speaker | A C-major scale, then a rising/falling sweep |
+| `benchmark_test` | Numbers for the report | Serial: clock and SPI rates, ADC and mux timing, drawing costs, frame time |
 
 Build one with e.g. `cmake --build build --target buttons_test` and flash `build/buttons_test.uf2`.
